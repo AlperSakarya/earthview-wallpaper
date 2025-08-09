@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Earth View Wallpaper
+Comment=Change your desktop wallpaper to beautiful Google Earth images
+Exec=/usr/bin/earthview-wallpaper
+Icon=earthview-wallpaper
+Terminal=false
+Type=Application
+Categories=Utility;Graphics;
+Keywords=wallpaper;background;earth;satellite;
+StartupNotify=true
+X-GNOME-Autostart-enabled=false

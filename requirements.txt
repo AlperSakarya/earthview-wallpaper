@@ -1,14 +1,9 @@
 # Python dependencies for Earth View Wallpaper Changer
 requests>=2.28.0
-pycairo>=1.20.1
-PyGObject>=3.42.0
-beautifulsoup4>=4.11.0
-lxml>=4.9.0
+# Note: For system packages, use apt install instead of pip:
+# sudo apt install python3-cairo python3-gi python3-gi-cairo python3-bs4 python3-lxml
 
-# Note: The following system dependencies must be installed via apt:
-# - libcairo2-dev
-# - libgirepository1.0-dev
+# System dependencies (install via apt):
 # - gir1.2-gtk-3.0
 # - gir1.2-ayatanaappindicator3-0.1
 # - gir1.2-notify-0.7
-

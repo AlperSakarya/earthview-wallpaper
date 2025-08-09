@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+# Set permissions
+chmod +x /usr/bin/earthview-wallpaper
+
+# Update desktop database
+update-desktop-database -q
+
+echo "Earth View Wallpaper Changer has been installed successfully!"
+echo "You can find it in your applications menu or run it from terminal with 'earthview-wallpaper'"
+
+exit 0

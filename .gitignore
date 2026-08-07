@@ -3,3 +3,7 @@ output.txt
 wallpaper-changer/wallpaper.jpg
 __pycache__/
 *.pyc
+*.deb
+earthview-package/usr/share/earthview/*.py
+earthview-package/usr/share/earthview/sources/
+earthview-package/usr/share/earthview/wallpaper_collections/

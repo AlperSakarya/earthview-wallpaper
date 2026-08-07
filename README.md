@@ -31,14 +31,8 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 ### Method 1: Debian Package (Recommended)
 
 ```bash
-# Install dependencies
-sudo apt install python3-cairo python3-gi python3-gi-cairo python3-bs4 \
-  python3-lxml python3-requests gir1.2-gtk-3.0 \
-  gir1.2-ayatanaappindicator3-0.1 gir1.2-notify-0.7
-
-# Install the package
-sudo dpkg -i earthview-wallpaper_2.0.0_all.deb
-sudo apt install -f
+# Single command - installs package and all dependencies automatically
+sudo apt install ./earthview-wallpaper_2.0.0_all.deb
 ```
 
 ### Method 2: Manual

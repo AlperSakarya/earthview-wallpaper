@@ -1,9 +1,16 @@
-# Python dependencies for Earth View Wallpaper Changer
+# Python dependencies for Earth View Wallpaper Engine v2.0
+#
+# Core dependencies (install via pip or apt):
 requests>=2.28.0
-# Note: For system packages, use apt install instead of pip:
-# sudo apt install python3-cairo python3-gi python3-gi-cairo python3-bs4 python3-lxml
+beautifulsoup4>=4.11.0
+lxml>=4.9.0
 
-# System dependencies (install via apt):
-# - gir1.2-gtk-3.0
-# - gir1.2-ayatanaappindicator3-0.1
-# - gir1.2-notify-0.7
+# System dependencies (install via apt - cannot be installed via pip):
+# sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+#   gir1.2-ayatanaappindicator3-0.1 gir1.2-notify-0.7 python3-cairo
+
+# Optional: For better Unsplash integration
+# Get a free API key at https://unsplash.com/developers
+
+# Optional: For better NASA APOD access (higher rate limits)
+# Get a free API key at https://api.nasa.gov

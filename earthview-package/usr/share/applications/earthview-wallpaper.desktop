@@ -1,11 +1,10 @@
 [Desktop Entry]
 Name=Earth View Wallpaper
-Comment=Change your desktop wallpaper to beautiful Google Earth images
-Exec=/usr/bin/earthview-wallpaper
+Comment=Multi-source wallpaper engine with satellite imagery from NASA, Google Earth, and more
+Exec=/usr/share/earthview/indicator.py
 Icon=earthview-wallpaper
 Terminal=false
 Type=Application
 Categories=Utility;Graphics;
-Keywords=wallpaper;background;earth;satellite;
 StartupNotify=true
-X-GNOME-Autostart-enabled=false
+Keywords=wallpaper;earth;satellite;nasa;background;

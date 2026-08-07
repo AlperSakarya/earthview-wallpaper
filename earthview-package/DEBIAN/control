@@ -1,12 +1,15 @@
 Package: earthview-wallpaper
-Version: 1.0.0
+Version: 2.0.0
 Section: utils
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.6), python3-pip, python3-gi, gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1, gir1.2-notify-0.7, python3-requests, python3-cairo, python3-gi-cairo, python3-bs4, python3-lxml
-Maintainer: Earth View Developer <dev@example.com>
-Description: Earth View Wallpaper Changer
- A simple application that sets beautiful satellite images
- from Google Earth as your desktop wallpaper.
- Features include system tray access, one-click wallpaper changing,
- and compatibility with Ubuntu and other GNOME-based Linux distributions.
+Depends: python3 (>= 3.8), python3-gi, python3-gi-cairo, python3-cairo, python3-bs4, python3-lxml, python3-requests, gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1, gir1.2-notify-0.7
+Maintainer: Earth View Wallpaper <earthview@example.com>
+Description: Multi-source desktop wallpaper engine
+ Earth View Wallpaper Engine pulls stunning imagery from multiple sources
+ including Google Earth View, NASA EPIC, Himawari-8, GOES satellites,
+ NASA APOD, and Unsplash.
+ .
+ Features include live satellite feeds, time-aware mode, fly-over routes,
+ themed collections, favorites, history, and configurable auto-change.
+Homepage: https://github.com/yourusername/earthview

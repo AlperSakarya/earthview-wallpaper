@@ -1,0 +1,93 @@
+{
+  "id": "desert_abstract",
+  "name": "Desert Abstract",
+  "description": "Abstract patterns in deserts - sand dunes, rock formations, and erosion art",
+  "icon": "",
+  "tags": ["desert", "abstract", "sand", "arid"],
+  "images": [
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1004.jpg",
+      "title": "Atacama Desert Patterns",
+      "description": "Abstract mineral patterns in Chile's Atacama Desert",
+      "country": "Chile",
+      "region": "Tamarugal",
+      "latitude": -19.140249,
+      "longitude": -68.683995,
+      "maps_url": "https://www.google.com/maps/@-19.140249,-68.683995,15z",
+      "category": "daytime",
+      "tags": ["desert", "minerals", "abstract", "chile"],
+      "id": "ev-1004",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1018.jpg",
+      "title": "Libyan Desert Formations",
+      "description": "Wind-carved sandstone formations in the Sahara",
+      "country": "Libya",
+      "region": "Al Kufrah",
+      "latitude": 24.659177,
+      "longitude": 24.968061,
+      "maps_url": "https://www.google.com/maps/@24.659177,24.968061,15z",
+      "category": "daytime",
+      "tags": ["desert", "sahara", "sandstone", "wind"],
+      "id": "ev-1018",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1019.jpg",
+      "title": "Egyptian Desert Circles",
+      "description": "Mysterious circular formations in Egypt's Western Desert",
+      "country": "Egypt",
+      "region": "Qesm Al Wahat Ad Dakhlah",
+      "latitude": 23.604734,
+      "longitude": 25.315547,
+      "maps_url": "https://www.google.com/maps/@23.604734,25.315547,15z",
+      "category": "daytime",
+      "tags": ["desert", "circles", "egypt", "mysterious"],
+      "id": "ev-1019",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1026.jpg",
+      "title": "Ennedi Plateau",
+      "description": "Dramatic rock formations in Chad's Ennedi region",
+      "country": "Chad",
+      "region": "Ennedi",
+      "latitude": 18.431694,
+      "longitude": 21.068799,
+      "maps_url": "https://www.google.com/maps/@18.431694,21.068799,15z",
+      "category": "daytime",
+      "tags": ["desert", "plateau", "rock", "erosion"],
+      "id": "ev-1026",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1017.jpg",
+      "title": "Kazakhstan Steppe",
+      "description": "Eroded badlands in Kazakhstan's Mangystau region",
+      "country": "Kazakhstan",
+      "region": "Beyneu District",
+      "latitude": 45.351844,
+      "longitude": 53.524919,
+      "maps_url": "https://www.google.com/maps/@45.351844,53.524919,14z",
+      "category": "daytime",
+      "tags": ["desert", "erosion", "badlands", "steppe"],
+      "id": "ev-1017",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1006.jpg",
+      "title": "Tibetan Plateau Ridges",
+      "description": "Multicolored geological ridges on the Tibetan Plateau",
+      "country": "China",
+      "region": "Ngari",
+      "latitude": 30.109104,
+      "longitude": 84.817876,
+      "maps_url": "https://www.google.com/maps/@30.109104,84.817876,15z",
+      "category": "daytime",
+      "tags": ["desert", "plateau", "ridges", "colorful", "tibet"],
+      "id": "ev-1006",
+      "attribution": "Google Earth View"
+    }
+  ]
+}

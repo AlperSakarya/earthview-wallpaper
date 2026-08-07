@@ -1,0 +1,93 @@
+{
+  "id": "arctic_ice",
+  "name": "Arctic & Ice Formations",
+  "description": "Glaciers, ice sheets, icebergs, and frozen landscapes from polar regions",
+  "icon": "",
+  "tags": ["arctic", "ice", "polar", "glacier"],
+  "images": [
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1010.jpg",
+      "title": "Antarctic Ice Sheet",
+      "description": "Vast ice sheet with blue meltwater channels",
+      "country": "Antarctica",
+      "region": "-",
+      "latitude": -76.646349,
+      "longitude": 160.41473,
+      "maps_url": "https://www.google.com/maps/@-76.646349,160.41473,14z",
+      "category": "daytime",
+      "tags": ["ice", "antarctica", "meltwater"],
+      "id": "ev-1010",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1012.jpg",
+      "title": "Antarctic Coastline",
+      "description": "Dramatic ice cliffs meeting the Southern Ocean",
+      "country": "Antarctica",
+      "region": "-",
+      "latitude": -71.924341,
+      "longitude": 25.157817,
+      "maps_url": "https://www.google.com/maps/@-71.924341,25.157817,10z",
+      "category": "daytime",
+      "tags": ["ice", "antarctica", "coastline", "cliffs"],
+      "id": "ev-1012",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1036.jpg",
+      "title": "Greenland Glacier",
+      "description": "Massive glacier flowing through Greenland's mountains",
+      "country": "Greenland",
+      "region": "Kujalleq",
+      "latitude": 60.997524,
+      "longitude": -45.010386,
+      "maps_url": "https://www.google.com/maps/@60.997524,-45.010386,17z",
+      "category": "daytime",
+      "tags": ["glacier", "greenland", "mountains"],
+      "id": "ev-1036",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1041.jpg",
+      "title": "Canadian Arctic Archipelago",
+      "description": "Ice-covered islands in Canada's far north",
+      "country": "Canada",
+      "region": "Nunavut",
+      "latitude": 80.884801,
+      "longitude": -82.867126,
+      "maps_url": "https://www.google.com/maps/@80.884801,-82.867126,11z",
+      "category": "daytime",
+      "tags": ["arctic", "islands", "ice", "canada"],
+      "id": "ev-1041",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1038.jpg",
+      "title": "Swiss Alps - Matterhorn Region",
+      "description": "Snow-covered Alpine peaks near Zermatt",
+      "country": "Switzerland",
+      "region": "Zermatt",
+      "latitude": 45.962714,
+      "longitude": 7.724891,
+      "maps_url": "https://www.google.com/maps/@45.962714,7.724891,16z",
+      "category": "daytime",
+      "tags": ["alps", "snow", "mountains", "switzerland"],
+      "id": "ev-1038",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1040.jpg",
+      "title": "Alpine Glacial Valley",
+      "description": "Glacier-carved valley in the Swiss Alps",
+      "country": "Switzerland",
+      "region": "Saas-Almagell",
+      "latitude": 46.054866,
+      "longitude": 7.973993,
+      "maps_url": "https://www.google.com/maps/@46.054866,7.973993,17z",
+      "category": "daytime",
+      "tags": ["alps", "glacier", "valley", "switzerland"],
+      "id": "ev-1040",
+      "attribution": "Google Earth View"
+    }
+  ]
+}

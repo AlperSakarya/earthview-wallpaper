@@ -1,3 +1,5 @@
 LICENSE.txt
 output.txt
 wallpaper-changer/wallpaper.jpg
+__pycache__/
+*.pyc

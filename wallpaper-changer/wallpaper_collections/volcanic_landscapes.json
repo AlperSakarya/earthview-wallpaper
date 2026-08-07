@@ -1,0 +1,75 @@
+{
+  "id": "volcanic_landscapes",
+  "name": "Volcanic Landscapes",
+  "description": "Dramatic volcanic terrain, lava flows, and calderas seen from space",
+  "icon": "",
+  "tags": ["volcanic", "geology", "dramatic"],
+  "images": [
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1037.jpg",
+      "title": "Iceland Volcanic Terrain",
+      "description": "Volcanic landscape in Iceland with dramatic black and green contrasts",
+      "country": "Iceland",
+      "region": "-",
+      "latitude": 64.181119,
+      "longitude": -17.140045,
+      "maps_url": "https://www.google.com/maps/@64.181119,-17.140045,13z",
+      "category": "daytime",
+      "tags": ["volcanic", "iceland", "lava"],
+      "id": "ev-1037",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1778.jpg",
+      "title": "Volcanic Island",
+      "description": "Remote volcanic island with dramatic crater formations",
+      "country": "Japan",
+      "region": "Volcanic Islands",
+      "latitude": 24.75,
+      "longitude": 141.32,
+      "category": "daytime",
+      "tags": ["volcanic", "island", "crater"],
+      "id": "ev-1778",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1503.jpg",
+      "title": "Lava Fields",
+      "description": "Barren lava fields stretching across the landscape",
+      "country": "Ethiopia",
+      "region": "Afar",
+      "latitude": 12.5,
+      "longitude": 40.5,
+      "category": "daytime",
+      "tags": ["volcanic", "lava", "desert"],
+      "id": "ev-1503",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/6035.jpg",
+      "title": "Volcanic Crater Lake",
+      "description": "Vivid blue crater lake inside an ancient volcano",
+      "country": "Indonesia",
+      "region": "East Java",
+      "latitude": -8.05,
+      "longitude": 114.24,
+      "category": "daytime",
+      "tags": ["volcanic", "crater", "lake", "blue"],
+      "id": "ev-6035",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1800.jpg",
+      "title": "Caldeira Formation",
+      "description": "Massive caldera with visible geological layers",
+      "country": "Chile",
+      "region": "Atacama",
+      "latitude": -23.5,
+      "longitude": -67.8,
+      "category": "daytime",
+      "tags": ["volcanic", "caldera", "geology"],
+      "id": "ev-1800",
+      "attribution": "Google Earth View"
+    }
+  ]
+}

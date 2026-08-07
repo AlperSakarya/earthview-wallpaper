@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+"""
+Earth View Wallpaper - Multi-Source Wallpaper Engine
+
+A modern desktop wallpaper changer that pulls stunning imagery from multiple
+sources including Google Earth View, NASA satellites, Unsplash, and more.
+
+Features:
+- Multiple image sources (Earth View, NASA EPIC, Himawari-8, GOES, APOD, Unsplash)
+- Themed collections (volcanic, arctic, rivers, deserts, human patterns)
+- Time-aware mode (adapts to time of day)
+- Fly-over mode (virtual flights along scenic routes)
+- Favorites and wallpaper history
+- Configurable auto-change interval
+- Source selection and preferences
+"""
+
 import signal
 import gi
 import json
@@ -8,8 +24,9 @@ import requests
 import subprocess
 import threading
 import time
-import shutil
+import sys
 from pathlib import Path
+from datetime import datetime
 
 # Ensure correct GTK versions
 gi.require_version('Gtk', '3.0')
@@ -21,98 +38,787 @@ from gi.repository import GLib
 from gi.repository import AyatanaAppIndicator3 as appindicator
 from gi.repository import Notify as notify
 
+# Add parent to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+from sources import SourceRegistry, ImageResult
+from sources.base import ImageCategory
+from wallpaper_collections.manager import CollectionManager
+from timeaware import TimeAwareManager
+from flyover import FlyOverManager
+
+
 APPINDICATOR_ID = 'earthview-wallpaper'
-APP_NAME = 'Earth View Wallpaper Changer'
-# Cache timeout in seconds (1 hour)
-CACHE_TIMEOUT = 3600
+APP_NAME = 'Earth View Wallpaper'
+VERSION = '2.0.0'
+
+# Default auto-change interval options (in seconds)
+INTERVAL_OPTIONS = {
+    "Off": 0,
+    "5 minutes": 300,
+    "15 minutes": 900,
+    "30 minutes": 1800,
+    "1 hour": 3600,
+    "2 hours": 7200,
+    "6 hours": 21600,
+    "12 hours": 43200,
+    "24 hours": 86400,
+}
+
+
+class Config:
+    """Application configuration manager."""
+
+    def __init__(self):
+        self.config_dir = Path.home() / ".config" / "earthview"
+        self.config_file = self.config_dir / "config.json"
+        self.history_file = self.config_dir / "history.json"
+        self.favorites_file = self.config_dir / "favorites.json"
+        self._ensure_dirs()
+        self._data = self._load()
+
+    def _ensure_dirs(self):
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+
+    def _load(self) -> dict:
+        if self.config_file.exists():
+            try:
+                with open(self.config_file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                pass
+        return self._defaults()
+
+    def _defaults(self) -> dict:
+        return {
+            "active_sources": [],  # empty = all
+            "auto_change_interval": 3600,
+            "time_aware": {"enabled": False},
+            "flyover": {"enabled": False, "mode": "location"},
+            "source_configs": {},
+            "active_collection": None,
+            "last_source": None,
+        }
+
+    def save(self):
+        with open(self.config_file, 'w') as f:
+            json.dump(self._data, f, indent=2)
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+    def set(self, key, value):
+        self._data[key] = value
+        self.save()
+
+
+
+class History:
+    """Wallpaper history tracker."""
+
+    MAX_HISTORY = 100
+
+    def __init__(self, config: Config):
+        self._file = config.history_file
+        self._entries: list = self._load()
+
+    def _load(self) -> list:
+        if self._file.exists():
+            try:
+                with open(self._file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                pass
+        return []
+
+    def _save(self):
+        with open(self._file, 'w') as f:
+            json.dump(self._entries[-self.MAX_HISTORY:], f, indent=2)
+
+    def add(self, image: ImageResult):
+        entry = {
+            "url": image.url,
+            "title": image.title,
+            "source": image.source_name,
+            "timestamp": datetime.now().isoformat(),
+            "attribution": image.attribution,
+        }
+        self._entries.append(entry)
+        if len(self._entries) > self.MAX_HISTORY:
+            self._entries = self._entries[-self.MAX_HISTORY:]
+        self._save()
+
+    @property
+    def recent(self) -> list:
+        """Get last 10 entries."""
+        return list(reversed(self._entries[-10:]))
+
+    @property
+    def last(self) -> dict:
+        return self._entries[-1] if self._entries else {}
+
+    def clear(self):
+        self._entries = []
+        self._save()
+
+
+class Favorites:
+    """Manages user's favorite wallpapers."""
+
+    def __init__(self, config: Config):
+        self._file = config.favorites_file
+        self._entries: list = self._load()
+
+    def _load(self) -> list:
+        if self._file.exists():
+            try:
+                with open(self._file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                pass
+        return []
+
+    def _save(self):
+        with open(self._file, 'w') as f:
+            json.dump(self._entries, f, indent=2)
+
+    def add(self, image: ImageResult):
+        # Avoid duplicates
+        if any(e["url"] == image.url for e in self._entries):
+            return
+        entry = {
+            "url": image.url,
+            "title": image.title,
+            "source": image.source_name,
+            "attribution": image.attribution,
+            "added": datetime.now().isoformat(),
+        }
+        self._entries.append(entry)
+        self._save()
+
+    def remove(self, url: str):
+        self._entries = [e for e in self._entries if e["url"] != url]
+        self._save()
+
+    def is_favorite(self, url: str) -> bool:
+        return any(e["url"] == url for e in self._entries)
+
+    @property
+    def all(self) -> list:
+        return list(self._entries)
+
+    @property
+    def count(self) -> int:
+        return len(self._entries)
+
+    def get_random(self) -> dict:
+        if self._entries:
+            return random.choice(self._entries)
+        return {}
+
+
 
 class EarthViewApp:
+    """Main application class."""
+
     def __init__(self):
         self.script_dir = Path(__file__).parent.absolute()
         self.wallpaper_path = self.script_dir / "wallpaper.jpg"
-        self.data_path = self.script_dir / "data.json"
         self.logo_path = self.script_dir / "logo.png"
-        self.data = None
+
+        # Config and state
+        self.config = Config()
+        self.history = History(self.config)
+        self.favorites = Favorites(self.config)
+
+        # Source registry
+        self.registry = SourceRegistry()
+        self._apply_source_configs()
+        self.registry.discover_sources()
+
+        # Collections
+        collections_dir = self.script_dir / "wallpaper_collections"
+        self.collections = CollectionManager(collections_dir)
+
+        # Time-aware manager
+        self.time_aware = TimeAwareManager(self.registry)
+        self.time_aware.load_config(self.config.get("time_aware", {}))
+
+        # Fly-over manager
+        self.flyover = FlyOverManager(self.registry)
+        self.flyover.load_config(self.config.get("flyover", {}))
+        self.flyover.load_state()
+
+        # State
         self.is_changing = False
-        
+        self.current_image: ImageResult = None
+        self._auto_change_timer = None
+        self._auto_change_interval = self.config.get("auto_change_interval", 3600)
+
         # Initialize notification system
         notify.init(APPINDICATOR_ID)
-        
+
         # Setup indicator
         self.indicator = appindicator.Indicator.new(
-            APPINDICATOR_ID, 
+            APPINDICATOR_ID,
             str(self.logo_path),
             appindicator.IndicatorCategory.SYSTEM_SERVICES
         )
         self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
         self.indicator.set_menu(self.build_menu())
-        
-        # Load data
-        self.load_data()
 
-    def load_data(self):
-        """Load image data from JSON file"""
-        try:
-            with open(self.data_path, 'r') as file:
-                self.data = json.load(file)
-        except (json.JSONDecodeError, FileNotFoundError) as e:
-            self.show_notification(f"Error loading data: {str(e)}", "error")
-            self.data = []
+        # Start auto-change timer if configured
+        self._start_auto_change()
+
+    def _apply_source_configs(self):
+        """Apply saved source configurations (API keys, etc.)."""
+        configs = self.config.get("source_configs", {})
+        for source_id, cfg in configs.items():
+            self.registry.set_config(source_id, cfg)
+
+        active = self.config.get("active_sources", [])
+        if active:
+            self.registry.set_active_sources(active)
+
 
     def build_menu(self):
-        """Build the indicator menu"""
+        """Build the indicator menu."""
         menu = gtk.Menu()
-        
-        # Change wallpaper item
+
+        # -- Change Wallpaper --
         item_change = gtk.MenuItem(label='Change Wallpaper')
         item_change.connect('activate', self.on_change_wallpaper)
         menu.append(item_change)
-        
-        # Separator
+
+        # -- Change from specific source submenu --
+        item_sources = gtk.MenuItem(label='Change From Source')
+        submenu_sources = gtk.Menu()
+        for source_id, source in self.registry.all_sources.items():
+            item = gtk.MenuItem(label=source.name)
+            item.connect('activate', self.on_change_from_source, source_id)
+            submenu_sources.append(item)
+        item_sources.set_submenu(submenu_sources)
+        menu.append(item_sources)
+
+        # -- Live Satellite submenu --
+        item_live = gtk.MenuItem(label='Live Satellite')
+        submenu_live = gtk.Menu()
+        for source_id, source in self.registry.all_sources.items():
+            if source.supports_live:
+                item = gtk.MenuItem(label=f"{source.name} (Latest)")
+                item.connect('activate', self.on_fetch_latest, source_id)
+                submenu_live.append(item)
+        item_live.set_submenu(submenu_live)
+        menu.append(item_live)
+
         menu.append(gtk.SeparatorMenuItem())
-        
-        # Autostart toggle
-        item_autostart = gtk.CheckMenuItem(label='Start automatically at login')
+
+        # -- Collections submenu --
+        item_collections = gtk.MenuItem(label='Collections')
+        submenu_collections = gtk.Menu()
+        for cid, collection in self.collections.all_collections.items():
+            label = f"{collection.name} ({collection.count})"
+            item = gtk.MenuItem(label=label)
+            item.connect('activate', self.on_collection_random, cid)
+            submenu_collections.append(item)
+        item_collections.set_submenu(submenu_collections)
+        menu.append(item_collections)
+
+        # -- Favorites --
+        item_fav_menu = gtk.MenuItem(label=f'Favorites ({self.favorites.count})')
+        submenu_fav = gtk.Menu()
+        item_add_fav = gtk.MenuItem(label='Add Current to Favorites')
+        item_add_fav.connect('activate', self.on_add_favorite)
+        submenu_fav.append(item_add_fav)
+        item_random_fav = gtk.MenuItem(label='Random from Favorites')
+        item_random_fav.connect('activate', self.on_random_favorite)
+        submenu_fav.append(item_random_fav)
+        submenu_fav.append(gtk.SeparatorMenuItem())
+        # Show recent favorites
+        for fav in self.favorites.all[:5]:
+            title = fav.get("title", "Untitled")[:40]
+            item = gtk.MenuItem(label=title)
+            item.connect('activate', self.on_set_specific_url, fav["url"])
+            submenu_fav.append(item)
+        item_fav_menu.set_submenu(submenu_fav)
+        menu.append(item_fav_menu)
+
+        menu.append(gtk.SeparatorMenuItem())
+
+
+        # -- Fly-Over mode submenu --
+        item_flyover = gtk.MenuItem(label='Fly-Over Mode')
+        submenu_flyover = gtk.Menu()
+
+        item_flyover_enable = gtk.CheckMenuItem(label='Enable Fly-Over')
+        item_flyover_enable.set_active(self.flyover.enabled)
+        item_flyover_enable.connect('toggled', self.on_toggle_flyover)
+        submenu_flyover.append(item_flyover_enable)
+
+        item_location_mode = gtk.RadioMenuItem(label='Location-Aware (near me)')
+        item_location_mode.set_active(self.flyover.mode == "location")
+        item_location_mode.connect('toggled', self.on_set_flyover_mode, "location")
+        submenu_flyover.append(item_location_mode)
+
+        item_route_mode = gtk.RadioMenuItem.new_with_label_from_widget(
+            item_location_mode, 'Fly-Over Route')
+        item_route_mode.set_active(self.flyover.mode == "flyover")
+        item_route_mode.connect('toggled', self.on_set_flyover_mode, "flyover")
+        submenu_flyover.append(item_route_mode)
+
+        submenu_flyover.append(gtk.SeparatorMenuItem())
+
+        # Route selection
+        for route_id, route in self.flyover.available_routes.items():
+            pos, total = self.flyover.route_progress
+            label = route.name
+            if self.flyover.current_route and route_id == self.flyover.current_route.id:
+                label += f" [{pos}/{total}]"
+            item = gtk.MenuItem(label=label)
+            item.connect('activate', self.on_select_route, route_id)
+            submenu_flyover.append(item)
+
+        item_flyover.set_submenu(submenu_flyover)
+        menu.append(item_flyover)
+
+        # -- Time-Aware mode --
+        item_time = gtk.CheckMenuItem(label='Time-Aware Mode')
+        item_time.set_active(self.time_aware.enabled)
+        item_time.connect('toggled', self.on_toggle_time_aware)
+        menu.append(item_time)
+
+        # Show current time category
+        if self.time_aware.enabled:
+            cat_name = self.time_aware.get_category_name()
+            item_cat = gtk.MenuItem(label=f'  Current: {cat_name}')
+            item_cat.set_sensitive(False)
+            menu.append(item_cat)
+
+        menu.append(gtk.SeparatorMenuItem())
+
+        # -- Auto-change interval --
+        item_interval = gtk.MenuItem(label='Auto-Change Interval')
+        submenu_interval = gtk.Menu()
+        current_interval = self._auto_change_interval
+        group = None
+        for label, seconds in INTERVAL_OPTIONS.items():
+            if group is None:
+                item = gtk.RadioMenuItem(label=label)
+                group = item
+            else:
+                item = gtk.RadioMenuItem.new_with_label_from_widget(group, label)
+            item.set_active(seconds == current_interval)
+            item.connect('toggled', self.on_set_interval, seconds)
+            submenu_interval.append(item)
+        item_interval.set_submenu(submenu_interval)
+        menu.append(item_interval)
+
+        menu.append(gtk.SeparatorMenuItem())
+
+
+        # -- History submenu --
+        item_history = gtk.MenuItem(label='History')
+        submenu_history = gtk.Menu()
+        for entry in self.history.recent:
+            title = entry.get("title", "Untitled")[:40]
+            source = entry.get("source", "")
+            ts = entry.get("timestamp", "")[:16]
+            label = f"{title} ({source}) - {ts}"
+            item = gtk.MenuItem(label=label)
+            item.connect('activate', self.on_set_specific_url, entry["url"])
+            submenu_history.append(item)
+        if not self.history.recent:
+            item_empty = gtk.MenuItem(label='No history yet')
+            item_empty.set_sensitive(False)
+            submenu_history.append(item_empty)
+        submenu_history.append(gtk.SeparatorMenuItem())
+        item_clear_hist = gtk.MenuItem(label='Clear History')
+        item_clear_hist.connect('activate', self.on_clear_history)
+        submenu_history.append(item_clear_hist)
+        item_history.set_submenu(submenu_history)
+        menu.append(item_history)
+
+        # -- Current wallpaper info --
+        if self.current_image:
+            item_info = gtk.MenuItem(
+                label=f'Current: {self.current_image.title[:50]}')
+            item_info.set_sensitive(False)
+            menu.append(item_info)
+            if self.current_image.attribution:
+                item_attr = gtk.MenuItem(
+                    label=f'  {self.current_image.attribution[:60]}')
+                item_attr.set_sensitive(False)
+                menu.append(item_attr)
+
+        menu.append(gtk.SeparatorMenuItem())
+
+        # -- Autostart --
+        item_autostart = gtk.CheckMenuItem(label='Start at login')
         autostart_file = Path.home() / ".config" / "autostart" / "earthview-wallpaper.desktop"
         item_autostart.set_active(autostart_file.exists())
         item_autostart.connect('toggled', self.toggle_autostart)
         menu.append(item_autostart)
-        
-        # Separator
+
+        # -- Preferences --
+        item_prefs = gtk.MenuItem(label='Preferences')
+        item_prefs.connect('activate', self.on_preferences)
+        menu.append(item_prefs)
+
         menu.append(gtk.SeparatorMenuItem())
-        
-        # About item
+
+        # -- About --
         item_about = gtk.MenuItem(label='About')
         item_about.connect('activate', self.on_about)
         menu.append(item_about)
-        
-        # Quit item
+
+        # -- Quit --
         item_quit = gtk.MenuItem(label='Quit')
         item_quit.connect('activate', self.on_quit)
         menu.append(item_quit)
-        
+
         menu.show_all()
         return menu
 
+    def _refresh_menu(self):
+        """Rebuild the menu to reflect current state."""
+        self.indicator.set_menu(self.build_menu())
+
+
+    # -- Event handlers --
+
+    def on_change_wallpaper(self, _):
+        """Change wallpaper using current mode settings."""
+        if self.is_changing:
+            self.show_notification("Already changing wallpaper, please wait...")
+            return
+        thread = threading.Thread(target=self._change_wallpaper_thread)
+        thread.daemon = True
+        thread.start()
+
+    def on_change_from_source(self, _, source_id):
+        """Change wallpaper from a specific source."""
+        if self.is_changing:
+            return
+        thread = threading.Thread(
+            target=self._change_wallpaper_thread, args=(source_id,))
+        thread.daemon = True
+        thread.start()
+
+    def on_fetch_latest(self, _, source_id):
+        """Fetch latest live satellite image."""
+        if self.is_changing:
+            return
+        thread = threading.Thread(
+            target=self._fetch_latest_thread, args=(source_id,))
+        thread.daemon = True
+        thread.start()
+
+    def on_collection_random(self, _, collection_id):
+        """Set wallpaper from a collection."""
+        if self.is_changing:
+            return
+        thread = threading.Thread(
+            target=self._collection_wallpaper_thread, args=(collection_id,))
+        thread.daemon = True
+        thread.start()
+
+    def on_add_favorite(self, _):
+        """Add current wallpaper to favorites."""
+        if self.current_image:
+            self.favorites.add(self.current_image)
+            self.show_notification(f"Added to favorites: {self.current_image.title[:40]}")
+            GLib.idle_add(self._refresh_menu)
+        else:
+            self.show_notification("No current wallpaper to favorite")
+
+    def on_random_favorite(self, _):
+        """Set a random favorite as wallpaper."""
+        fav = self.favorites.get_random()
+        if fav:
+            thread = threading.Thread(
+                target=self._set_url_thread, args=(fav["url"], fav.get("title", "")))
+            thread.daemon = True
+            thread.start()
+        else:
+            self.show_notification("No favorites yet")
+
+    def on_set_specific_url(self, _, url):
+        """Set a specific URL as wallpaper (from history/favorites)."""
+        thread = threading.Thread(
+            target=self._set_url_thread, args=(url, ""))
+        thread.daemon = True
+        thread.start()
+
+    def on_toggle_flyover(self, widget):
+        """Toggle fly-over mode."""
+        self.flyover.enabled = widget.get_active()
+        self.config.set("flyover", self.flyover.get_config())
+
+    def on_set_flyover_mode(self, widget, mode):
+        """Set fly-over mode type."""
+        if widget.get_active():
+            self.flyover.mode = mode
+            self.config.set("flyover", self.flyover.get_config())
+
+    def on_select_route(self, _, route_id):
+        """Select a fly-over route."""
+        self.flyover.set_route(route_id)
+        self.flyover.mode = "flyover"
+        self.flyover.enabled = True
+        self.config.set("flyover", self.flyover.get_config())
+        route = self.flyover.current_route
+        if route:
+            self.show_notification(f"Fly-over: {route.name}\n{route.description}")
+        GLib.idle_add(self._refresh_menu)
+
+    def on_toggle_time_aware(self, widget):
+        """Toggle time-aware mode."""
+        self.time_aware.enabled = widget.get_active()
+        self.config.set("time_aware", self.time_aware.get_config())
+        if widget.get_active():
+            cat = self.time_aware.get_category_name()
+            self.show_notification(f"Time-aware mode on - Current period: {cat}")
+        GLib.idle_add(self._refresh_menu)
+
+    def on_set_interval(self, widget, seconds):
+        """Set auto-change interval."""
+        if widget.get_active():
+            self._auto_change_interval = seconds
+            self.config.set("auto_change_interval", seconds)
+            self._start_auto_change()
+
+    def on_clear_history(self, _):
+        """Clear wallpaper history."""
+        self.history.clear()
+        GLib.idle_add(self._refresh_menu)
+
+
+    def on_preferences(self, _):
+        """Open preferences dialog."""
+        from preferences import PreferencesDialog
+        dialog = PreferencesDialog(self)
+        dialog.run()
+        dialog.destroy()
+        # Reload config after prefs change
+        self._apply_source_configs()
+        GLib.idle_add(self._refresh_menu)
+
+    def on_about(self, _):
+        """Show about dialog."""
+        about = gtk.AboutDialog()
+        about.set_program_name(APP_NAME)
+        about.set_version(VERSION)
+        about.set_copyright("Earth View Wallpaper Engine")
+        about.set_comments(
+            "Multi-source wallpaper changer with satellite imagery from "
+            "Google Earth View, NASA, Himawari-8, GOES, and Unsplash.\n\n"
+            "Features: Live satellite feeds, fly-over routes, "
+            "time-aware mode, collections, and more."
+        )
+        about.set_website("https://earthview.withgoogle.com")
+        about.set_authors([
+            "Earth View Wallpaper Contributors",
+        ])
+        about.set_license_type(gtk.License.MIT_X11)
+        try:
+            about.set_logo(
+                gtk.Image.new_from_file(str(self.logo_path)).get_pixbuf())
+        except Exception:
+            pass
+        about.run()
+        about.destroy()
+
+    def on_quit(self, _):
+        """Quit the application."""
+        self.config.save()
+        notify.uninit()
+        gtk.main_quit()
+
+
+    # -- Wallpaper change logic --
+
+    def _change_wallpaper_thread(self, source_id=None):
+        """Main wallpaper change logic - respects current mode."""
+        self.is_changing = True
+        try:
+            image = None
+
+            # Priority: Fly-over > Time-aware > Random
+            if self.flyover.enabled:
+                image = self.flyover.fetch_appropriate(source_id)
+            elif self.time_aware.enabled:
+                image = self.time_aware.fetch_appropriate(source_id)
+            else:
+                image = self.registry.fetch_random(source_id)
+
+            if image:
+                self._apply_wallpaper(image)
+            else:
+                GLib.idle_add(
+                    self.show_notification,
+                    "No wallpaper available from selected source")
+        except Exception as e:
+            GLib.idle_add(
+                self.show_notification,
+                f"Error: {str(e)[:80]}")
+        finally:
+            self.is_changing = False
+
+    def _fetch_latest_thread(self, source_id):
+        """Fetch latest live satellite image."""
+        self.is_changing = True
+        try:
+            image = self.registry.fetch_latest(source_id)
+            if image:
+                self._apply_wallpaper(image)
+            else:
+                GLib.idle_add(
+                    self.show_notification,
+                    "No live image available")
+        except Exception as e:
+            GLib.idle_add(
+                self.show_notification,
+                f"Error: {str(e)[:80]}")
+        finally:
+            self.is_changing = False
+
+    def _collection_wallpaper_thread(self, collection_id):
+        """Set wallpaper from a collection."""
+        self.is_changing = True
+        try:
+            image = self.collections.fetch_random(collection_id)
+            if image:
+                self._apply_wallpaper(image)
+            else:
+                GLib.idle_add(
+                    self.show_notification,
+                    "Collection is empty")
+        except Exception as e:
+            GLib.idle_add(
+                self.show_notification,
+                f"Error: {str(e)[:80]}")
+        finally:
+            self.is_changing = False
+
+    def _set_url_thread(self, url, title=""):
+        """Download and set a specific URL as wallpaper."""
+        self.is_changing = True
+        try:
+            self._download_and_set(url)
+            # Create a minimal ImageResult for tracking
+            image = ImageResult(
+                url=url,
+                source_name="Direct",
+                title=title or "Wallpaper",
+            )
+            self.current_image = image
+            self.history.add(image)
+            GLib.idle_add(self.show_notification, "Wallpaper changed")
+            GLib.idle_add(self._refresh_menu)
+        except Exception as e:
+            GLib.idle_add(
+                self.show_notification,
+                f"Error: {str(e)[:80]}")
+        finally:
+            self.is_changing = False
+
+
+    def _apply_wallpaper(self, image: ImageResult):
+        """Download image and set as wallpaper."""
+        self._download_and_set(image.url)
+        self.current_image = image
+        self.history.add(image)
+
+        # Build notification message
+        msg = image.title or "Wallpaper changed"
+        if image.source_name:
+            msg += f"\nSource: {image.source_name}"
+        if image.location_str and image.location_str != "Unknown location":
+            msg += f"\nLocation: {image.location_str}"
+
+        GLib.idle_add(self.show_notification, msg)
+        GLib.idle_add(self._refresh_menu)
+
+    def _download_and_set(self, url: str):
+        """Download an image and set it as the desktop wallpaper."""
+        # Ensure URL has protocol
+        if not url.startswith(('http://', 'https://')):
+            url = 'https://' + url
+
+        # Download
+        response = requests.get(url, timeout=30, stream=True)
+        response.raise_for_status()
+
+        with open(self.wallpaper_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        # Set wallpaper via gsettings
+        location = f"file://{self.wallpaper_path}"
+
+        # GNOME 42+ (Ubuntu 22.04+) - dark mode wallpaper
+        subprocess.run(
+            ["gsettings", "set", "org.gnome.desktop.background",
+             "picture-uri-dark", location],
+            check=False, capture_output=True)
+
+        # All GNOME versions
+        subprocess.run(
+            ["gsettings", "set", "org.gnome.desktop.background",
+             "picture-uri", location],
+            check=True, capture_output=True)
+
+        # Set scaling mode to zoom (fills screen)
+        subprocess.run(
+            ["gsettings", "set", "org.gnome.desktop.background",
+             "picture-options", "zoom"],
+            check=False, capture_output=True)
+
+
+    # -- Auto-change timer --
+
+    def _start_auto_change(self):
+        """Start or restart the auto-change timer."""
+        # Cancel existing timer
+        if self._auto_change_timer:
+            GLib.source_remove(self._auto_change_timer)
+            self._auto_change_timer = None
+
+        if self._auto_change_interval > 0:
+            # Convert seconds to milliseconds for GLib timeout
+            self._auto_change_timer = GLib.timeout_add_seconds(
+                self._auto_change_interval, self._auto_change_tick)
+
+    def _auto_change_tick(self) -> bool:
+        """Called by the auto-change timer."""
+        if not self.is_changing:
+            thread = threading.Thread(target=self._change_wallpaper_thread)
+            thread.daemon = True
+            thread.start()
+        return True  # Return True to keep the timer running
+
+    # -- Autostart --
+
     def toggle_autostart(self, widget):
-        """Toggle autostart setting"""
+        """Toggle autostart setting."""
         autostart_dir = Path.home() / ".config" / "autostart"
         autostart_file = autostart_dir / "earthview-wallpaper.desktop"
-        
-        # Check if we're installed as a package or running from source
+
         desktop_file = Path("/usr/share/applications/earthview-wallpaper.desktop")
-        if not desktop_file.exists():
-            # Running from source, create a custom desktop file
-            if not autostart_dir.exists():
-                autostart_dir.mkdir(parents=True, exist_ok=True)
-                
-            if widget.get_active():
-                # Create autostart file
+
+        if widget.get_active():
+            autostart_dir.mkdir(parents=True, exist_ok=True)
+            if desktop_file.exists():
+                import shutil
+                shutil.copy(desktop_file, autostart_file)
+                with open(autostart_file, 'a') as f:
+                    f.write("\nX-GNOME-Autostart-enabled=true\n")
+            else:
                 script_path = Path(__file__).absolute()
                 with open(autostart_file, 'w') as f:
                     f.write(f"""[Desktop Entry]
 Name=Earth View Wallpaper
-Comment=Change your desktop wallpaper to beautiful Google Earth images
+Comment=Multi-source wallpaper changer with satellite imagery
 Exec={script_path}
 Icon={self.logo_path}
 Terminal=false
@@ -121,118 +827,31 @@ Categories=Utility;Graphics;
 StartupNotify=true
 X-GNOME-Autostart-enabled=true
 """)
-            else:
-                # Remove autostart file
-                if autostart_file.exists():
-                    autostart_file.unlink()
         else:
-            # Installed as package
-            if not autostart_dir.exists():
-                autostart_dir.mkdir(parents=True, exist_ok=True)
-                
-            if widget.get_active():
-                # Enable autostart
-                if not autostart_file.exists():
-                    shutil.copy(desktop_file, autostart_file)
-                    with open(autostart_file, 'a') as f:
-                        f.write("\nX-GNOME-Autostart-enabled=true\n")
-            else:
-                # Disable autostart
-                if autostart_file.exists():
-                    autostart_file.unlink()
+            if autostart_file.exists():
+                autostart_file.unlink()
 
-    def on_change_wallpaper(self, _):
-        """Handle wallpaper change request"""
-        if self.is_changing:
-            self.show_notification("Already changing wallpaper, please wait...", "info")
-            return
-            
-        if not self.data:
-            self.show_notification("No wallpaper data available", "error")
-            return
-            
-        # Use threading to prevent UI freezing
-        thread = threading.Thread(target=self.change_wallpaper_thread)
-        thread.daemon = True
-        thread.start()
-
-    def change_wallpaper_thread(self):
-        """Change wallpaper in a separate thread"""
-        self.is_changing = True
-        try:
-            # Select random image
-            rand_index = random.randint(0, len(self.data) - 1)
-            image_data = self.data[rand_index]
-            
-            # Get image URL - handle both formats in data
-            if "image" in image_data:
-                wallpaper_url = image_data["image"]
-            elif "Image URL" in image_data:
-                wallpaper_url = "http://" + image_data["Image URL"]
-            else:
-                raise ValueError("Invalid image data format")
-                
-            # Ensure URL starts with http or https
-            if not wallpaper_url.startswith(('http://', 'https://')):
-                wallpaper_url = "https://" + wallpaper_url
-                
-            # Download image
-            response = requests.get(wallpaper_url, timeout=10)
-            response.raise_for_status()
-            
-            with open(self.wallpaper_path, 'wb') as file:
-                file.write(response.content)
-                
-            # Set as wallpaper (both for older and newer GNOME versions)
-            location = f"file://{self.wallpaper_path}"
-            
-            # For GNOME 42+ (Ubuntu 22.04+)
-            subprocess.run(["gsettings", "set", "org.gnome.desktop.background", 
-                           "picture-uri-dark", location], check=False)
-            
-            # For all GNOME versions
-            subprocess.run(["gsettings", "set", "org.gnome.desktop.background", 
-                           "picture-uri", location], check=True)
-            
-            # Show success notification on the main thread
-            GLib.idle_add(self.show_notification, "Wallpaper changed successfully", "success")
-            
-        except Exception as e:
-            GLib.idle_add(self.show_notification, f"Error changing wallpaper: {str(e)}", "error")
-        finally:
-            self.is_changing = False
+    # -- Notifications --
 
     def show_notification(self, message, level="info"):
-        """Show a notification with appropriate icon"""
+        """Show a desktop notification."""
         icons = {
             "success": "dialog-information",
             "error": "dialog-error",
-            "info": "dialog-information"
+            "info": "dialog-information",
         }
         icon = icons.get(level, "dialog-information")
-        notify.Notification.new(APP_NAME, message, icon).show()
+        try:
+            notify.Notification.new(APP_NAME, message, icon).show()
+        except Exception:
+            pass
 
-    def on_about(self, _):
-        """Show about dialog"""
-        about_dialog = gtk.AboutDialog()
-        about_dialog.set_program_name(APP_NAME)
-        about_dialog.set_version("1.0")
-        about_dialog.set_copyright("Earth View by Google")
-        about_dialog.set_comments("Changes your desktop wallpaper to beautiful satellite images from Google Earth")
-        about_dialog.set_website("https://earthview.withgoogle.com")
-        about_dialog.set_logo(gtk.Image.new_from_file(str(self.logo_path)).get_pixbuf())
-        about_dialog.run()
-        about_dialog.destroy()
-
-    def on_quit(self, _):
-        """Quit the application"""
-        notify.uninit()
-        gtk.main_quit()
 
 def main():
     app = EarthViewApp()
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     gtk.main()
+
 
 if __name__ == "__main__":
     main()

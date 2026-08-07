@@ -1,0 +1,93 @@
+{
+  "id": "human_patterns",
+  "name": "Human Patterns",
+  "description": "Cities, agriculture, roads, and other human-made patterns visible from space",
+  "icon": "",
+  "tags": ["human", "cities", "agriculture", "patterns"],
+  "images": [
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1033.jpg",
+      "title": "Chicago Suburbs",
+      "description": "Geometric grid patterns of suburban Chicago",
+      "country": "United States",
+      "region": "Chicago",
+      "latitude": 41.989079,
+      "longitude": -87.901827,
+      "maps_url": "https://www.google.com/maps/@41.989079,-87.901827,18z",
+      "category": "daytime",
+      "tags": ["city", "grid", "suburban", "geometry"],
+      "id": "ev-1033",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1035.jpg",
+      "title": "German Open-Pit Mine",
+      "description": "Massive open-pit mining operation in Germany",
+      "country": "Germany",
+      "region": "Niederzier",
+      "latitude": 50.915255,
+      "longitude": 6.491187,
+      "maps_url": "https://www.google.com/maps/@50.915255,6.491187,16z",
+      "category": "daytime",
+      "tags": ["mining", "industry", "geometry", "human"],
+      "id": "ev-1035",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1034.jpg",
+      "title": "California Forestry Patterns",
+      "description": "Geometric logging patterns in California forests",
+      "country": "United States",
+      "region": "Camptonville",
+      "latitude": 39.39742,
+      "longitude": -121.141797,
+      "maps_url": "https://www.google.com/maps/@39.39742,-121.141797,17z",
+      "category": "daytime",
+      "tags": ["forestry", "logging", "patterns", "green"],
+      "id": "ev-1034",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1046.jpg",
+      "title": "Salt Evaporation Ponds",
+      "description": "Colorful salt evaporation ponds in Utah",
+      "country": "United States",
+      "region": "Tooele County",
+      "latitude": 40.812713,
+      "longitude": -112.649732,
+      "maps_url": "https://www.google.com/maps/@40.812713,-112.649732,16z",
+      "category": "daytime",
+      "tags": ["salt", "industry", "colorful", "ponds"],
+      "id": "ev-1046",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1057.jpg",
+      "title": "Mediterranean Marina",
+      "description": "Boats and harbors along the coast of Mallorca",
+      "country": "Spain",
+      "region": "Calvia",
+      "latitude": 39.532597,
+      "longitude": 2.587215,
+      "maps_url": "https://www.google.com/maps/@39.532597,2.587215,18z",
+      "category": "daytime",
+      "tags": ["marina", "boats", "coast", "mediterranean"],
+      "id": "ev-1057",
+      "attribution": "Google Earth View"
+    },
+    {
+      "url": "https://www.gstatic.com/prettyearth/assets/full/1021.jpg",
+      "title": "Agricultural Geometry",
+      "description": "Circular irrigation patterns on the Great Plains",
+      "country": "United States",
+      "region": "Porcupine",
+      "latitude": 43.536867,
+      "longitude": -102.360299,
+      "maps_url": "https://www.google.com/maps/@43.536867,-102.360299,17z",
+      "category": "daytime",
+      "tags": ["agriculture", "circles", "irrigation", "farming"],
+      "id": "ev-1021",
+      "attribution": "Google Earth View"
+    }
+  ]
+}

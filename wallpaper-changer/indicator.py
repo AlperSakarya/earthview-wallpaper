@@ -847,7 +847,27 @@ X-GNOME-Autostart-enabled=true
             pass
 
 
+def acquire_lock():
+    """Ensure only one instance runs at a time using a lock file."""
+    import fcntl
+    lock_file = Path.home() / ".config" / "earthview" / "earthview.lock"
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # Open (or create) the lock file
+    lock_fd = open(lock_file, 'w')
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # Write our PID
+        lock_fd.write(str(os.getpid()))
+        lock_fd.flush()
+        return lock_fd  # Keep reference alive to hold the lock
+    except IOError:
+        print("Earth View Wallpaper is already running.")
+        sys.exit(0)
+
+
 def main():
+    lock = acquire_lock()
     app = EarthViewApp()
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     gtk.main()

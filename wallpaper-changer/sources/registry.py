@@ -102,6 +102,9 @@ class SourceRegistry:
         """
         Fetch a random image from active sources.
         
+        Picks ONE source at random, tries it. Only falls back to others
+        if that source fails. This ensures all sources get equal usage.
+        
         Args:
             source_id: If specified, fetch only from this source.
         """
@@ -117,9 +120,19 @@ class SourceRegistry:
         if not sources:
             return None
 
-        # Weighted random - try each source until one succeeds
-        random.shuffle(sources)
-        for source in sources:
+        # Pick one source at random
+        chosen = random.choice(sources)
+        try:
+            result = chosen.fetch_random()
+            if result:
+                return result
+        except Exception as e:
+            print(f"Source {chosen.name} failed: {e}")
+
+        # Chosen source failed - try the rest as fallback
+        remaining = [s for s in sources if s is not chosen]
+        random.shuffle(remaining)
+        for source in remaining:
             try:
                 result = source.fetch_random()
                 if result:

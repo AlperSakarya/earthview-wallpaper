@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="2.0.4"
+VERSION="2.0.5"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_DIR="$SCRIPT_DIR/earthview-package"
@@ -83,6 +83,29 @@ if [ "$CHANGELOG_VERSION" != "$VERSION" ]; then
     echo "ERROR: changelog top entry is $CHANGELOG_VERSION but building $VERSION." >&2
     exit 1
 fi
+
+# --- Icons ---------------------------------------------------------------
+# Staged from packaging/icons so the installed theme always matches the
+# master artwork. Each PNG must match its directory name or lintian fails.
+ICON_SRC="$SCRIPT_DIR/packaging/icons"
+ICON_DIR="$PKG_DIR/usr/share/icons/hicolor"
+
+if [ ! -f "$ICON_SRC/earthview-wallpaper.svg" ]; then
+    echo "ERROR: missing packaging/icons/earthview-wallpaper.svg" >&2
+    exit 1
+fi
+
+rm -rf "$ICON_DIR"
+for size in 32 48 64 128 256 512; do
+    src="$ICON_SRC/earthview-wallpaper-${size}.png"
+    if [ ! -f "$src" ]; then
+        echo "ERROR: missing packaging/icons/earthview-wallpaper-${size}.png" >&2
+        exit 1
+    fi
+    install -Dm644 "$src" "$ICON_DIR/${size}x${size}/apps/earthview-wallpaper.png"
+done
+install -Dm644 "$ICON_SRC/earthview-wallpaper.svg" \
+               "$ICON_DIR/scalable/apps/earthview-wallpaper.svg"
 
 # --- Normalise permissions ----------------------------------------------
 # Directories 755 and data files 644 as policy requires; the build tree may

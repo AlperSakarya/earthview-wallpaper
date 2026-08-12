@@ -1,3 +1,16 @@
+earthview-wallpaper (2.0.5) stable; urgency=medium
+
+  * Replace the application icon with original artwork. The previous icon was
+    derived from Google imagery; the new one is a hand-authored SVG globe with
+    orbital arcs and viewfinder framing, carrying no third party branding.
+  * Install icons at 32, 48, 64, 128, 256 and 512 pixels plus a scalable SVG,
+    so desktop environments can pick the size they need instead of rescaling
+    a single bitmap.
+  * Icon artwork now lives in packaging/icons and is staged at build time, so
+    the installed theme cannot drift from the master files.
+
+ -- Alper Sakarya <earthview@example.com>  Wed, 12 Aug 2026 14:45:00 +0000
+
 earthview-wallpaper (2.0.4) stable; urgency=high
 
   * Add file logging to ~/.cache/earthview/earthview.log with rotation, a

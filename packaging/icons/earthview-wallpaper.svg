@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<defs>
+  <radialGradient id="bg" cx="50%" cy="48%" r="58%">
+    <stop offset="0" stop-color="#163c66"/>
+    <stop offset="0.62" stop-color="#101d32"/>
+    <stop offset="1" stop-color="#0e182a"/>
+  </radialGradient>
+  <radialGradient id="ocean" cx="42%" cy="36%" r="72%">
+    <stop offset="0" stop-color="#1fa0e6"/>
+    <stop offset="1" stop-color="#1474bd"/>
+  </radialGradient>
+  <clipPath id="earthClip"><circle cx="512" cy="500" r="282"/></clipPath>
+</defs>
+<rect x="54" y="54" width="916" height="916" rx="210" fill="url(#bg)"/>
+<circle cx="512" cy="500" r="282" fill="url(#ocean)" stroke="#9bdfff" stroke-width="12"/>
+<g clip-path="url(#earthClip)" opacity=".45" stroke="#d2f5ff" fill="none" stroke-width="3">
+  <ellipse cx="512" cy="500" rx="160" ry="282"/>
+  <ellipse cx="512" cy="500" rx="78" ry="282"/>
+  <path d="M244 426 Q512 510 780 426"/>
+  <path d="M236 500 Q512 575 788 500"/>
+  <path d="M244 574 Q512 640 780 574"/>
+</g>
+<g fill="#48cd83">
+  <path d="M355 370l37-44 53-12 25 27 34 5 16 26-20 28-34 10-14 37-34 11-28-21-25-23z"/>
+  <path d="M468 490l28 10 19 31-3 37-16 36-12 48-28 22-11-37 5-41-16-38 8-36z"/>
+  <path d="M548 365l27-19 28 4 19 19-13 20-29 6-18-11z"/>
+  <path d="M581 402l37 7 23 27-8 39-20 25-9 48-29 26-27-29-10-44 10-39-12-30z"/>
+  <path d="M616 356l48-19 48 13 38 32-10 34-35 11-31-16-26 19-28-18z"/>
+  <path d="M690 548l39-7 26 21-11 32-38 7-24-23z"/>
+</g>
+<g fill="none" stroke-linecap="round">
+  <path d="M207 564 C257 717 711 775 826 518" stroke="#74ddff" stroke-width="16"/>
+  <path d="M222 451 C323 278 716 263 819 429" stroke="#74ddff" stroke-width="9" opacity=".55"/>
+</g>
+<circle cx="804" cy="457" r="19" fill="#ffc43d"/>
+<circle cx="804" cy="457" r="10" fill="#ffeeb4"/>
+<g stroke="#ebf8ff" stroke-width="18" fill="none" stroke-linecap="square">
+  <path d="M213 293v-95h95"/>
+  <path d="M716 198h95v95"/>
+  <path d="M213 702v95h95"/>
+  <path d="M716 797h95v-95"/>
+</g>
+</svg>

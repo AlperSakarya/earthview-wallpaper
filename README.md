@@ -32,7 +32,7 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 
 ```bash
 # Single command - installs package and all dependencies automatically
-sudo apt install ./earthview-wallpaper_2.0.4_all.deb
+sudo apt install ./earthview-wallpaper_2.0.5_all.deb
 ```
 
 The package handles upgrades cleanly: it stops any running instance before
@@ -174,7 +174,7 @@ python3 wallpaper-changer/migrate_data.py --input wallpaper-changer/data.json
 
 This stages the source tree into the package layout, normalises ownership to
 `root:root` and permissions to Debian policy, compresses the changelog and man
-page, and builds `earthview-wallpaper_2.0.4_all.deb`. The result passes
+page, and builds `earthview-wallpaper_2.0.5_all.deb`. The result passes
 `lintian` with no errors or warnings.
 
 ## Fly-Over Routes

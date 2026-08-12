@@ -7,3 +7,7 @@ __pycache__/
 earthview-package/usr/share/earthview/*.py
 earthview-package/usr/share/earthview/sources/
 earthview-package/usr/share/earthview/wallpaper_collections/
+
+# Generated at build time from pristine sources in packaging/
+earthview-package/usr/share/doc/
+earthview-package/usr/share/man/

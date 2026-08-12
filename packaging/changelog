@@ -1,0 +1,71 @@
+earthview-wallpaper (2.0.4) stable; urgency=high
+
+  * Add file logging to ~/.cache/earthview/earthview.log with rotation, a
+    "View Log" menu entry, and a --debug flag. Source and provider failures
+    are now recorded instead of being written to a discarded stdout.
+  * Fix a black desktop after upgrading from 2.0.2 or earlier. Those versions
+    stored the wallpaper inside the installation directory, which is removed
+    on upgrade, leaving the desktop pointing at a missing file. The app now
+    detects a wallpaper setting that points nowhere and repairs it, and the
+    package clears stale references during installation.
+  * Always set both picture-uri and picture-uri-dark. Previously a failure to
+    set the dark variant was ignored, so systems in dark mode could keep
+    showing a stale or missing image.
+  * Reject downloads under 1KB rather than applying them, since a truncated
+    response or error page renders as a black desktop.
+
+ -- Alper Sakarya <earthview@example.com>  Wed, 12 Aug 2026 14:40:00 +0000
+
+earthview-wallpaper (2.0.3) stable; urgency=medium
+
+  * Fix location mode collapsing onto a single source. Fly-over "location"
+    mode filtered to sources advertising geographic support, which only
+    Google Earth View does, so every wallpaper came from that one source.
+    All sources now participate in location mode.
+  * Widen the Google Earth View geographic candidate pool from 5 to 40+
+    entries, which caused the same few nearby places to repeat endlessly.
+  * Retarget GOES imagery at GOES-19; NOAA retired the GOES-16 paths and
+    they now redirect. Added 23 verified satellite/sector combinations.
+  * Add a time-bucketed parameter to GOES URLs so the live feed is not
+    treated as a single image by deduplication.
+  * Draw NASA EPIC imagery from the full ~3592 date archive instead of
+    only the most recent capture.
+  * Stop retrying sources that report failure, which was exhausting the
+    shared NASA APOD demo key quota.
+  * Write the downloaded wallpaper to ~/.cache/earthview/ instead of the
+    installation directory, so /usr/share can stay read-only.
+  * Package now stops running instances before upgrade or removal and
+    restarts them afterwards, cleans stale bytecode, and installs with
+    root ownership.
+
+ -- Alper Sakarya <earthview@example.com>  Wed, 12 Aug 2026 14:30:00 +0000
+
+earthview-wallpaper (2.0.2) stable; urgency=medium
+
+  * Add round-robin source cycling so every source is used in turn.
+  * Track used image URLs and suppress repeats for seven days.
+
+ -- Alper Sakarya <earthview@example.com>  Wed, 12 Aug 2026 12:00:00 +0000
+
+earthview-wallpaper (2.0.1) stable; urgency=medium
+
+  * Add a single-instance lock to prevent duplicate tray icons.
+  * Distribute source selection evenly across providers.
+
+ -- Alper Sakarya <earthview@example.com>  Wed, 12 Aug 2026 10:00:00 +0000
+
+earthview-wallpaper (2.0.0) stable; urgency=medium
+
+  * Multi-source wallpaper engine with a plugin architecture.
+  * New sources: NASA EPIC, Himawari-8, GOES, NASA APOD, Unsplash.
+  * Themed collections, favourites, history, and wallpaper timer.
+  * Time-aware mode and fly-over routes.
+  * GTK preferences dialog.
+
+ -- Alper Sakarya <earthview@example.com>  Fri, 07 Aug 2026 11:00:00 +0000
+
+earthview-wallpaper (1.0.0) stable; urgency=low
+
+  * Initial release with Google Earth View imagery.
+
+ -- Alper Sakarya <earthview@example.com>  Sun, 18 May 2025 14:00:00 +0000

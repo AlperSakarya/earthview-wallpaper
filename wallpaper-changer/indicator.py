@@ -46,11 +46,14 @@ from sources.base import ImageCategory
 from wallpaper_collections.manager import CollectionManager
 from timeaware import TimeAwareManager
 from flyover import FlyOverManager
+from logsetup import setup_logging, get_logger, log_path
+
+log = get_logger()
 
 
 APPINDICATOR_ID = 'earthview-wallpaper'
 APP_NAME = 'Earth View Wallpaper'
-VERSION = '2.0.3'
+VERSION = '2.0.4'
 
 # Default auto-change interval options (in seconds)
 INTERVAL_OPTIONS = {
@@ -277,6 +280,59 @@ class EarthViewApp:
         # Start auto-change timer if configured
         self._start_auto_change()
 
+        log.info("started: %d sources, %d collections, interval=%ss, "
+                 "time_aware=%s, flyover=%s/%s",
+                 len(self.registry.all_sources),
+                 len(self.collections.all_collections),
+                 self._auto_change_interval,
+                 self.time_aware.enabled,
+                 self.flyover.enabled, self.flyover.mode)
+        log.debug("sources: %s", ", ".join(self.registry.all_sources))
+        self._repair_stale_wallpaper()
+
+    def _repair_stale_wallpaper(self):
+        """
+        Repair a wallpaper setting that points at a file which no longer exists.
+
+        Versions up to 2.0.2 saved the wallpaper inside the installation
+        directory. That file is removed on upgrade, which leaves the desktop
+        pointing at a missing path and rendering black. Detect that and apply
+        a fresh wallpaper instead.
+        """
+        stale = False
+        for key in ("picture-uri", "picture-uri-dark"):
+            try:
+                result = subprocess.run(
+                    ["gsettings", "get", "org.gnome.desktop.background", key],
+                    capture_output=True, text=True, timeout=10)
+                value = result.stdout.strip().strip("'\"")
+                if not value.startswith("file://"):
+                    continue
+                path = Path(value[len("file://"):])
+                if not path.exists():
+                    log.warning("%s points at missing file: %s", key, path)
+                    stale = True
+            except Exception as e:
+                log.debug("could not inspect %s: %s", key, e)
+
+        if not stale:
+            return
+
+        # Reapply the cached image if we have one, otherwise fetch a new one.
+        if self.wallpaper_path.exists():
+            log.info("repairing stale wallpaper setting using cached image")
+            location = f"file://{self.wallpaper_path}"
+            for key in ("picture-uri", "picture-uri-dark"):
+                subprocess.run(
+                    ["gsettings", "set", "org.gnome.desktop.background",
+                     key, location],
+                    check=False, capture_output=True)
+        else:
+            log.info("repairing stale wallpaper setting by fetching a new image")
+            thread = threading.Thread(target=self._change_wallpaper_thread)
+            thread.daemon = True
+            thread.start()
+
     def _apply_source_configs(self):
         """Apply saved source configurations (API keys, etc.)."""
         configs = self.config.get("source_configs", {})
@@ -471,6 +527,11 @@ class EarthViewApp:
         item_prefs.connect('activate', self.on_preferences)
         menu.append(item_prefs)
 
+        # -- View log --
+        item_log = gtk.MenuItem(label='View Log')
+        item_log.connect('activate', self.on_view_log)
+        menu.append(item_log)
+
         menu.append(gtk.SeparatorMenuItem())
 
         # -- About --
@@ -610,6 +671,20 @@ class EarthViewApp:
         self._apply_source_configs()
         GLib.idle_add(self._refresh_menu)
 
+    def on_view_log(self, _):
+        """Open the log file in the user's default text viewer."""
+        path = log_path()
+        if not path.exists():
+            self.show_notification("No log file yet")
+            return
+        try:
+            subprocess.Popen(["xdg-open", str(path)],
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+        except Exception as e:
+            log.warning("could not open log viewer: %s", e)
+            self.show_notification(f"Log file: {path}")
+
     def on_about(self, _):
         """Show about dialog."""
         about = gtk.AboutDialog()
@@ -652,19 +727,28 @@ class EarthViewApp:
 
             # Priority: Fly-over > Time-aware > Random
             if self.flyover.enabled:
+                mode = f"flyover/{self.flyover.mode}"
                 image = self.flyover.fetch_appropriate(source_id)
             elif self.time_aware.enabled:
+                mode = f"time-aware/{self.time_aware.get_category_name()}"
                 image = self.time_aware.fetch_appropriate(source_id)
             else:
+                mode = "rotation"
                 image = self.registry.fetch_random(source_id)
+
+            log.info("change requested (mode=%s, source=%s)",
+                     mode, source_id or "auto")
 
             if image:
                 self._apply_wallpaper(image)
             else:
+                log.error("no image available (mode=%s, source=%s)",
+                          mode, source_id or "auto")
                 GLib.idle_add(
                     self.show_notification,
                     "No wallpaper available from selected source")
         except Exception as e:
+            log.exception("wallpaper change failed")
             GLib.idle_add(
                 self.show_notification,
                 f"Error: {str(e)[:80]}")
@@ -752,28 +836,45 @@ class EarthViewApp:
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
 
+        log.info("downloading %s", url)
+
         # Download
         response = requests.get(url, timeout=30, stream=True)
         response.raise_for_status()
 
+        written = 0
         with open(self.wallpaper_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
+                written += len(chunk)
+
+        content_type = response.headers.get("content-type", "unknown")
+        log.info("saved %d bytes (%s) to %s",
+                 written, content_type, self.wallpaper_path)
+
+        # A truncated or error-page response would leave an unusable file and
+        # the desktop would render black, so refuse to apply it.
+        if written < 1024:
+            raise IOError(
+                f"downloaded file is too small ({written} bytes, {content_type}) "
+                f"- refusing to apply")
 
         # Set wallpaper via gsettings
         location = f"file://{self.wallpaper_path}"
 
-        # GNOME 42+ (Ubuntu 22.04+) - dark mode wallpaper
-        subprocess.run(
-            ["gsettings", "set", "org.gnome.desktop.background",
-             "picture-uri-dark", location],
-            check=False, capture_output=True)
-
-        # All GNOME versions
-        subprocess.run(
-            ["gsettings", "set", "org.gnome.desktop.background",
-             "picture-uri", location],
-            check=True, capture_output=True)
+        # Both keys must be set. GNOME 42+ uses picture-uri-dark when the
+        # system is in dark mode; leaving it stale shows the old (or missing)
+        # image instead of the new one.
+        for key in ("picture-uri", "picture-uri-dark"):
+            result = subprocess.run(
+                ["gsettings", "set", "org.gnome.desktop.background",
+                 key, location],
+                capture_output=True, text=True)
+            if result.returncode != 0:
+                log.warning("gsettings %s failed: %s",
+                            key, result.stderr.strip())
+            else:
+                log.debug("gsettings %s set", key)
 
         # Set scaling mode to zoom (fills screen)
         subprocess.run(
@@ -874,10 +975,21 @@ def acquire_lock():
 
 
 def main():
+    logger = setup_logging()
+    logger.info("=" * 60)
+    logger.info("Earth View Wallpaper %s starting (pid %d)", VERSION, os.getpid())
+    logger.debug("python %s", sys.version.split()[0])
+    logger.debug("log file: %s", log_path())
+
     lock = acquire_lock()
-    app = EarthViewApp()
+    try:
+        app = EarthViewApp()
+    except Exception:
+        logger.exception("failed to start")
+        raise
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     gtk.main()
+    logger.info("exited")
 
 
 if __name__ == "__main__":

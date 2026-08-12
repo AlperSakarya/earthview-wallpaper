@@ -12,6 +12,13 @@ from typing import Dict, List, Optional, Set
 
 from .base import WallpaperSource, ImageResult, ImageCategory
 
+try:
+    from logsetup import get_logger
+    log = get_logger("registry")
+except ImportError:  # standalone use without the app package
+    import logging
+    log = logging.getLogger("earthview.registry")
+
 
 # How long (in seconds) before an image URL can be reused (7 days)
 DEDUP_WINDOW = 7 * 24 * 3600
@@ -155,7 +162,7 @@ class SourceRegistry:
                             source.configure(self._configs[source.source_id])
                         self._sources[source.source_id] = source
             except Exception as e:
-                print(f"Warning: Failed to load source '{module_name}': {e}")
+                log.warning("failed to load source %s: %s", module_name, e)
 
     def register_source(self, source: WallpaperSource) -> None:
         """Manually register a source instance."""
@@ -233,12 +240,20 @@ class SourceRegistry:
             try:
                 result = source.fetch_random()
             except Exception as e:
-                print(f"Source {source.name} error: {e}")
+                log.warning("source %s raised: %s", source.source_id, e)
                 return None
             if result is None:
+                log.warning("source %s returned no image (failure or rate limit)",
+                            source.source_id)
                 return None
             if not self._recent.is_recent(result.url):
+                log.debug("source %s produced fresh image: %s",
+                          source.source_id, result.url)
                 return result
+            log.debug("source %s produced duplicate, retrying: %s",
+                      source.source_id, result.url)
+        log.info("source %s exhausted %d attempts without a fresh image",
+                 source.source_id, max_attempts)
         return None
 
     def fetch_random(self, source_id: Optional[str] = None) -> Optional[ImageResult]:
@@ -376,12 +391,16 @@ class SourceRegistry:
             try:
                 result = source.fetch_near_location(latitude, longitude, radius_km)
             except Exception as e:
-                print(f"Source {source.name} geo error: {e}")
+                log.warning("source %s geo lookup raised: %s", source.source_id, e)
                 return None
             if result is None:
+                log.warning("source %s geo lookup returned no image",
+                            source.source_id)
                 return None
             if not self._recent.is_recent(result.url):
                 return result
+            log.debug("source %s geo duplicate, retrying: %s",
+                      source.source_id, result.url)
         return None
 
     def fetch_near_location(self, latitude: float, longitude: float,

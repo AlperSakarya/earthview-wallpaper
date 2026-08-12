@@ -1,0 +1,73 @@
+.TH EARTHVIEW-WALLPAPER 1 "August 2026" "2.0.4" "User Commands"
+.SH NAME
+earthview\-wallpaper \- multi\-source desktop wallpaper engine
+.SH SYNOPSIS
+.B earthview\-wallpaper
+.SH DESCRIPTION
+.B earthview\-wallpaper
+runs a system tray indicator that sets the desktop wallpaper from satellite
+and photographic imagery fetched from several providers.
+.PP
+Only one instance runs at a time. Starting a second one exits immediately
+rather than adding a duplicate tray icon.
+.SH SOURCES
+.TP
+.B Google Earth View
+Curated satellite landscapes. Bundled locally, no network index required.
+.TP
+.B NASA EPIC
+Full\-disc Earth from the DSCOVR satellite, drawn from the full archive.
+.TP
+.B Himawari\-8
+Japan Meteorological Agency imagery, updated every ten minutes.
+.TP
+.B GOES\-19 / GOES\-18
+NOAA GeoColor composites covering the Americas, full disc and regional.
+.TP
+.B NASA APOD
+Astronomy Picture of the Day.
+.TP
+.B Unsplash
+Scenery, aerial, and space photography.
+.SH MODES
+.TP
+.B Random
+Sources are used in strict rotation so each is selected in turn.
+.TP
+.B Time\-aware
+Selects imagery matching the current time of day.
+.TP
+.B Fly\-over
+Advances along a scenic route, or shows imagery near your location.
+.PP
+No image repeats within seven days. Used URLs are recorded in
+.IR ~/.config/earthview/recent_urls.json .
+.SH FILES
+.TP
+.I ~/.config/earthview/config.json
+Active sources, interval, and mode settings.
+.TP
+.I ~/.config/earthview/history.json
+Recently applied wallpapers.
+.TP
+.I ~/.config/earthview/favorites.json
+Saved favourites.
+.TP
+.I ~/.config/earthview/recent_urls.json
+Deduplication record used to suppress repeats.
+.TP
+.I ~/.cache/earthview/wallpaper.jpg
+The currently applied wallpaper image.
+.TP
+.I ~/.config/earthview/collections/
+User\-supplied collections, loaded alongside the bundled ones.
+.SH NOTES
+NASA APOD uses a shared demo key by default and is rate limited to roughly
+thirty requests per hour. Supply a personal key from
+.UR https://api.nasa.gov
+.UE
+under Preferences, Sources for reliable access. Unsplash works without a key.
+.SH SEE ALSO
+.BR gsettings (1)
+.SH AUTHOR
+Alper Sakarya and contributors.

@@ -13,6 +13,14 @@ from typing import Optional, List
 
 from .base import WallpaperSource, ImageResult, ImageCategory
 
+try:
+    from logsetup import get_logger
+    log = get_logger("earthview")
+except ImportError:  # standalone use without the app package
+    import logging
+    log = logging.getLogger("earthview.earthview")
+
+
 
 class EarthViewSource(WallpaperSource):
     """
@@ -43,7 +51,7 @@ class EarthViewSource(WallpaperSource):
                         self._data = json.load(f)
                     break
                 except (json.JSONDecodeError, IOError) as e:
-                    print(f"Warning: Failed to load {path}: {e}")
+                    log.warning("failed to load %s: %s", path, e)
                     continue
 
     @property

@@ -13,6 +13,14 @@ from datetime import datetime, timedelta, timezone
 
 from .base import WallpaperSource, ImageResult, ImageCategory
 
+try:
+    from logsetup import get_logger
+    log = get_logger("himawari8")
+except ImportError:  # standalone use without the app package
+    import logging
+    log = logging.getLogger("earthview.himawari8")
+
+
 
 class Himawari8Source(WallpaperSource):
     """
@@ -111,7 +119,7 @@ class Himawari8Source(WallpaperSource):
             
             return self._parse_result(target)
         except Exception as e:
-            print(f"Himawari-8 error: {e}")
+            log.warning("himawari8 error: %s", e)
             return None
 
     def fetch_latest(self) -> Optional[ImageResult]:
@@ -122,5 +130,5 @@ class Himawari8Source(WallpaperSource):
                 return None
             return self._parse_result(latest)
         except Exception as e:
-            print(f"Himawari-8 error: {e}")
+            log.warning("himawari8 error: %s", e)
             return None

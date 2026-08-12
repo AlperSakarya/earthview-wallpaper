@@ -38,6 +38,35 @@ case "$1" in
             mandb -q 2>/dev/null || true
         fi
 
+        # Migration: versions up to 2.0.2 stored the wallpaper inside this
+        # directory, which is removed on upgrade. Any desktop still pointing
+        # at that path would render black. Clear those stale references so the
+        # app reapplies a valid wallpaper on next start.
+        for home in /home/*; do
+            [ -d "$home" ] || continue
+            user="$(basename "$home")"
+            id "$user" >/dev/null 2>&1 || continue
+            uid="$(id -u "$user")"
+            bus="/run/user/$uid/bus"
+            [ -S "$bus" ] || continue
+
+            for key in picture-uri picture-uri-dark; do
+                current="$(su -l "$user" -c \
+                    "DBUS_SESSION_BUS_ADDRESS=unix:path=$bus \
+                     gsettings get org.gnome.desktop.background $key" \
+                    2>/dev/null || true)"
+                case "$current" in
+                    *"/usr/share/earthview/wallpaper.jpg"*)
+                        echo "Clearing stale wallpaper reference ($key) for $user..."
+                        su -l "$user" -c \
+                            "DBUS_SESSION_BUS_ADDRESS=unix:path=$bus \
+                             gsettings reset org.gnome.desktop.background $key" \
+                            >/dev/null 2>&1 || true
+                        ;;
+                esac
+            done
+        done
+
         # Restart for users who were running it before the upgrade.
         if [ -s "$STATE_FILE" ]; then
             while read -r user; do

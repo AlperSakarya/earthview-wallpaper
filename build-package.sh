@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="2.0.3"
+VERSION="2.0.4"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_DIR="$SCRIPT_DIR/earthview-package"
@@ -55,17 +55,34 @@ chmod 755 "$PKG_DIR/usr/bin/earthview-wallpaper"
 
 # --- Documentation -------------------------------------------------------
 # Debian policy requires a changelog and copyright file, and expects the
-# changelog and man pages to be gzip compressed.
+# changelog and man pages to be gzip compressed. Pristine sources live in
+# packaging/ and are staged here, so the build never destroys its own inputs
+# and repeated runs are idempotent.
+DOC_SRC="$SCRIPT_DIR/packaging"
 DOC_DIR="$PKG_DIR/usr/share/doc/earthview-wallpaper"
 MAN_DIR="$PKG_DIR/usr/share/man/man1"
 
-if [ -f "$DOC_DIR/changelog" ]; then
-    gzip -9nf "$DOC_DIR/changelog"
+for required in changelog copyright earthview-wallpaper.1; do
+    if [ ! -f "$DOC_SRC/$required" ]; then
+        echo "ERROR: missing packaging/$required" >&2
+        exit 1
+    fi
+done
+
+rm -rf "$DOC_DIR" "$MAN_DIR"
+install -d "$DOC_DIR" "$MAN_DIR"
+
+install -m 644 "$DOC_SRC/copyright" "$DOC_DIR/copyright"
+gzip -9nc "$DOC_SRC/changelog" > "$DOC_DIR/changelog.gz"
+gzip -9nc "$DOC_SRC/earthview-wallpaper.1" > "$MAN_DIR/earthview-wallpaper.1.gz"
+chmod 644 "$DOC_DIR/changelog.gz" "$MAN_DIR/earthview-wallpaper.1.gz"
+
+# The changelog's top version must match what we are building.
+CHANGELOG_VERSION="$(head -1 "$DOC_SRC/changelog" | sed -E 's/.*\(([^)]+)\).*/\1/')"
+if [ "$CHANGELOG_VERSION" != "$VERSION" ]; then
+    echo "ERROR: changelog top entry is $CHANGELOG_VERSION but building $VERSION." >&2
+    exit 1
 fi
-if [ -f "$MAN_DIR/earthview-wallpaper.1" ]; then
-    gzip -9nf "$MAN_DIR/earthview-wallpaper.1"
-fi
-chmod 644 "$DOC_DIR"/* "$MAN_DIR"/* 2>/dev/null || true
 
 # --- Normalise permissions ----------------------------------------------
 # Directories 755 and data files 644 as policy requires; the build tree may

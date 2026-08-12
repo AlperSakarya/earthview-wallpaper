@@ -15,6 +15,14 @@ from datetime import datetime
 
 from .base import WallpaperSource, ImageResult, ImageCategory
 
+try:
+    from logsetup import get_logger
+    log = get_logger("nasa_epic")
+except ImportError:  # standalone use without the app package
+    import logging
+    log = logging.getLogger("earthview.nasa_epic")
+
+
 
 class NasaEpicSource(WallpaperSource):
     """
@@ -60,7 +68,7 @@ class NasaEpicSource(WallpaperSource):
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            print(f"NASA EPIC API error: {e}")
+            log.warning("nasa_epic api error: %s", e)
             return []
 
     def _fetch_available_dates(self) -> list:
@@ -80,7 +88,7 @@ class NasaEpicSource(WallpaperSource):
                 entry["date"] for entry in data if entry.get("date")
             ]
         except Exception as e:
-            print(f"NASA EPIC dates error: {e}")
+            log.warning("nasa_epic dates error: %s", e)
             self._dates_cache = []
         return self._dates_cache
 

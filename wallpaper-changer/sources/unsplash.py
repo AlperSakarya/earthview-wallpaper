@@ -19,6 +19,14 @@ from bs4 import BeautifulSoup
 
 from .base import WallpaperSource, ImageResult, ImageCategory
 
+try:
+    from logsetup import get_logger
+    log = get_logger("unsplash")
+except ImportError:  # standalone use without the app package
+    import logging
+    log = logging.getLogger("earthview.unsplash")
+
+
 
 # Unsplash direct image URL format:
 # https://images.unsplash.com/photo-{ID}?w=1920&q=80  (sized)
@@ -231,7 +239,7 @@ class UnsplashSource(WallpaperSource):
                 attribution=f"Photo by {user_name} on Unsplash",
             )
         except Exception as e:
-            print(f"Unsplash API error: {e}")
+            log.warning("unsplash api error: %s", e)
             return None
 
     def _fetch_from_search_page(self, query: Optional[str] = None) -> Optional[ImageResult]:
@@ -313,7 +321,7 @@ class UnsplashSource(WallpaperSource):
                 attribution=f"Photo by {user_name} on Unsplash",
             )
         except Exception as e:
-            print(f"Unsplash search error: {e}")
+            log.warning("unsplash search error: %s", e)
             return None
 
     def fetch_random(self) -> Optional[ImageResult]:

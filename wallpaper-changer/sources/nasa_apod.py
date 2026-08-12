@@ -14,6 +14,14 @@ from datetime import datetime, timedelta
 
 from .base import WallpaperSource, ImageResult, ImageCategory
 
+try:
+    from logsetup import get_logger
+    log = get_logger("nasa_apod")
+except ImportError:  # standalone use without the app package
+    import logging
+    log = logging.getLogger("earthview.nasa_apod")
+
+
 
 class NasaApodSource(WallpaperSource):
     """
@@ -72,7 +80,7 @@ class NasaApodSource(WallpaperSource):
                 return [data]
             return data
         except Exception as e:
-            print(f"NASA APOD API error: {e}")
+            log.warning("nasa_apod api error: %s", e)
             return []
 
     def _parse_entry(self, entry: dict) -> Optional[ImageResult]:

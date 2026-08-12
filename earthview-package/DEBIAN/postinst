@@ -2,13 +2,82 @@
 # postinst - runs after the package is unpacked and configured.
 #
 # Ensures a clean install: removes stale bytecode from previous versions,
-# refreshes desktop/icon caches, and restarts the app for any user who had
-# it running before an upgrade.
+# refreshes desktop/icon caches, and launches the app.
+#
+# Launch behaviour differs by situation, using dpkg's second argument which
+# holds the previously configured version (empty on a fresh install):
+#   fresh install - start for every user with an active graphical session
+#   upgrade       - start only for users who had it running before, so that
+#                   someone who deliberately quit is not relaunched
+#
+# dpkg invokes this as root, so starting a tray application means entering the
+# target user's session explicitly via their session bus.
 
 set -e
 
 SHARE_DIR=/usr/share/earthview
 STATE_FILE=/run/earthview-wallpaper.restart
+PREVIOUS_VERSION="$2"
+
+# Users with a real login shell and home under /home, one per line.
+desktop_users() {
+    for home in /home/*; do
+        [ -d "$home" ] || continue
+        user="$(basename "$home")"
+        id "$user" >/dev/null 2>&1 || continue
+        printf '%s\n' "$user"
+    done
+}
+
+# Path to a user's session bus, or empty when they have no active session.
+session_bus() {
+    local uid
+    uid="$(id -u "$1" 2>/dev/null)" || return 0
+    local bus="/run/user/$uid/bus"
+    [ -S "$bus" ] && printf '%s' "$bus"
+}
+
+# Best-effort discovery of the user's X/Wayland display, read from an existing
+# session process. Falls back to :0, which covers the common single-seat case.
+user_display() {
+    local user="$1" pid display=""
+
+    for pattern in gnome-shell plasmashell xfce4-session gnome-session Xorg; do
+        pid="$(pgrep -u "$user" -o "$pattern" 2>/dev/null)" || continue
+        [ -n "$pid" ] || continue
+        [ -r "/proc/$pid/environ" ] || continue
+        display="$(tr '\0' '\n' < "/proc/$pid/environ" \
+                   | sed -n 's/^DISPLAY=//p' | head -1)"
+        [ -n "$display" ] && break
+    done
+
+    printf '%s' "${display:-:0}"
+}
+
+# Start the app for one user inside their session. Never fatal: a failure to
+# launch must not leave the package unconfigured.
+start_for_user() {
+    local user="$1"
+    local bus display
+
+    bus="$(session_bus "$user")"
+    [ -n "$bus" ] || return 0        # not logged in to a graphical session
+
+    # Already running for this user; the app's own lock would refuse anyway.
+    if pgrep -u "$user" -f "$SHARE_DIR/indicator.py" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    display="$(user_display "$user")"
+
+    echo "Starting Earth View Wallpaper for $user..."
+    # setsid detaches from dpkg so the app is not killed when this script ends.
+    su -l "$user" -c \
+        "DISPLAY='$display' \
+         DBUS_SESSION_BUS_ADDRESS='unix:path=$bus' \
+         setsid nohup earthview-wallpaper >/dev/null 2>&1 < /dev/null &" \
+        >/dev/null 2>&1 || true
+}
 
 case "$1" in
     configure)
@@ -42,24 +111,20 @@ case "$1" in
         # directory, which is removed on upgrade. Any desktop still pointing
         # at that path would render black. Clear those stale references so the
         # app reapplies a valid wallpaper on next start.
-        for home in /home/*; do
-            [ -d "$home" ] || continue
-            user="$(basename "$home")"
-            id "$user" >/dev/null 2>&1 || continue
-            uid="$(id -u "$user")"
-            bus="/run/user/$uid/bus"
-            [ -S "$bus" ] || continue
+        for user in $(desktop_users); do
+            bus="$(session_bus "$user")"
+            [ -n "$bus" ] || continue
 
             for key in picture-uri picture-uri-dark; do
                 current="$(su -l "$user" -c \
-                    "DBUS_SESSION_BUS_ADDRESS=unix:path=$bus \
+                    "DBUS_SESSION_BUS_ADDRESS='unix:path=$bus' \
                      gsettings get org.gnome.desktop.background $key" \
                     2>/dev/null || true)"
                 case "$current" in
                     *"/usr/share/earthview/wallpaper.jpg"*)
                         echo "Clearing stale wallpaper reference ($key) for $user..."
                         su -l "$user" -c \
-                            "DBUS_SESSION_BUS_ADDRESS=unix:path=$bus \
+                            "DBUS_SESSION_BUS_ADDRESS='unix:path=$bus' \
                              gsettings reset org.gnome.desktop.background $key" \
                             >/dev/null 2>&1 || true
                         ;;
@@ -67,28 +132,23 @@ case "$1" in
             done
         done
 
-        # Restart for users who were running it before the upgrade.
-        if [ -s "$STATE_FILE" ]; then
+        if [ -z "$PREVIOUS_VERSION" ]; then
+            # Fresh install: start for anyone currently logged in.
+            for user in $(desktop_users); do
+                start_for_user "$user"
+            done
+        elif [ -s "$STATE_FILE" ]; then
+            # Upgrade: only restore users who had it running.
             while read -r user; do
                 [ -n "$user" ] || continue
-                id "$user" >/dev/null 2>&1 || continue
-
-                uid="$(id -u "$user")"
-                bus="/run/user/$uid/bus"
-                [ -S "$bus" ] || continue   # no active session, skip
-
-                echo "Restarting Earth View Wallpaper for $user..."
-                su -l "$user" -c \
-                    "DISPLAY=\"\${DISPLAY:-:0}\" \
-                     DBUS_SESSION_BUS_ADDRESS=unix:path=$bus \
-                     nohup earthview-wallpaper >/dev/null 2>&1 &" \
-                    >/dev/null 2>&1 || true
+                start_for_user "$user"
             done < "$STATE_FILE"
-            rm -f "$STATE_FILE" 2>/dev/null || true
         fi
+        rm -f "$STATE_FILE" 2>/dev/null || true
 
         echo "Earth View Wallpaper Engine installed successfully."
         echo "Launch from the applications menu or run: earthview-wallpaper"
+        echo "Enable 'Start at login' from the tray menu to run it on boot."
         ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

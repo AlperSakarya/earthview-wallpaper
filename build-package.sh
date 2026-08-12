@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="2.0.5"
+VERSION="2.0.6"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_DIR="$SCRIPT_DIR/earthview-package"
@@ -32,15 +32,18 @@ find "$SHARE_DIR" -name '*.pyc' -delete 2>/dev/null || true
 
 install -d "$SHARE_DIR" "$SHARE_DIR/sources" "$SHARE_DIR/wallpaper_collections"
 
-# Application modules (read-only data, mode 644).
-for f in preferences.py timeaware.py flyover.py migrate_data.py; do
-    install -m 644 "$SRC_DIR/$f" "$SHARE_DIR/$f"
+# Application modules. Copied by glob rather than an explicit list: a
+# hardcoded list silently omits newly added modules, which ships a package
+# that crashes on import.
+for src in "$SRC_DIR"/*.py; do
+    name="$(basename "$src")"
+    install -m 644 "$src" "$SHARE_DIR/$name"
 done
 install -m 644 "$SRC_DIR/data.json" "$SHARE_DIR/data.json"
 install -m 644 "$SRC_DIR/logo.png" "$SHARE_DIR/logo.png"
 
 # Entry point is executable.
-install -m 755 "$SRC_DIR/indicator.py" "$SHARE_DIR/indicator.py"
+chmod 755 "$SHARE_DIR/indicator.py"
 
 install -m 644 "$SRC_DIR/sources/"*.py "$SHARE_DIR/sources/"
 install -m 644 "$SRC_DIR/wallpaper_collections/"*.py "$SHARE_DIR/wallpaper_collections/"
@@ -130,6 +133,66 @@ chmod 644 "$PKG_DIR/DEBIAN/control"
 # /usr/share owned by that user.
 rm -f "$OUTPUT"
 dpkg-deb --root-owner-group --build "$PKG_DIR" "$OUTPUT"
+
+# --- Verify payload ------------------------------------------------------
+# Confirm every source module is present in the built archive. A missing
+# module produces a package that fails at import time, which is not visible
+# from the build output alone.
+CONTENTS="$(dpkg-deb -c "$OUTPUT")"
+MISSING=0
+
+check_present() {
+    if ! printf '%s' "$CONTENTS" | grep -q "$1"; then
+        echo "ERROR: $1 missing from package" >&2
+        MISSING=1
+    fi
+}
+
+for src in "$SRC_DIR"/*.py; do
+    check_present "/usr/share/earthview/$(basename "$src")"
+done
+for src in "$SRC_DIR"/sources/*.py; do
+    check_present "/usr/share/earthview/sources/$(basename "$src")"
+done
+for src in "$SRC_DIR"/wallpaper_collections/*.py; do
+    check_present "/usr/share/earthview/wallpaper_collections/$(basename "$src")"
+done
+check_present "/usr/bin/earthview-wallpaper"
+check_present "/usr/share/doc/earthview-wallpaper/changelog.gz"
+check_present "/usr/share/doc/earthview-wallpaper/copyright"
+check_present "/usr/share/man/man1/earthview-wallpaper.1.gz"
+
+if [ "$MISSING" -ne 0 ]; then
+    echo "Build failed verification." >&2
+    rm -f "$OUTPUT"
+    exit 1
+fi
+
+# Confirm the entry point can resolve all its imports from the staged tree.
+# Catches a missing module even when the file list looks complete.
+if ! ( cd "$SHARE_DIR" && python3 -c "
+import ast, sys, pathlib
+local = {p.stem for p in pathlib.Path('.').glob('*.py')}
+local |= {'sources', 'wallpaper_collections'}
+tree = ast.parse(pathlib.Path('indicator.py').read_text())
+missing = []
+for node in ast.walk(tree):
+    if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+        root = node.module.split('.')[0]
+        if root in local:
+            continue
+        try:
+            __import__(root)
+        except ImportError:
+            missing.append(root)
+if missing:
+    print('unresolved imports: ' + ', '.join(sorted(set(missing))), file=sys.stderr)
+    sys.exit(1)
+" ); then
+    echo "ERROR: staged tree has unresolved imports." >&2
+    rm -f "$OUTPUT"
+    exit 1
+fi
 
 echo
 echo "Package built: $(basename "$OUTPUT")"

@@ -1,3 +1,23 @@
+earthview-wallpaper (2.0.6) stable; urgency=high
+
+  * Fix a package that could not start at all. The 2.0.4 and 2.0.5 builds
+    omitted logsetup.py, so the installed application aborted immediately
+    with "ModuleNotFoundError: No module named 'logsetup'". The build staged
+    modules from a hardcoded list which was not updated when that module was
+    added; it now copies every module by glob.
+  * The build verifies that each source module is present in the finished
+    archive and that the entry point's imports all resolve, then discards the
+    archive if either check fails.
+  * Start the application after installation. A fresh install launches it for
+    every user with an active graphical session, while an upgrade only
+    restores users who had it running, so anyone who deliberately quit is
+    left alone.
+  * Detect the target user's display from their running session instead of
+    assuming :0. Under dpkg the DISPLAY variable is unset, so the previous
+    fallback would fail on any system whose display is not :0.
+
+ -- Alper Sakarya <earthview@example.com>  Wed, 12 Aug 2026 14:50:00 +0000
+
 earthview-wallpaper (2.0.5) stable; urgency=medium
 
   * Replace the application icon with original artwork. The previous icon was

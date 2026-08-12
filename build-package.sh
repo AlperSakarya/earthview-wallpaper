@@ -41,6 +41,6 @@ find "$SHARE_DIR" -name "*.py" -exec chmod 644 {} \;
 chmod 755 "$SHARE_DIR/indicator.py"
 
 # Build the package
-dpkg-deb --build "$PKG_DIR" "$SCRIPT_DIR/earthview-wallpaper_2.0.1_all.deb"
+dpkg-deb --build "$PKG_DIR" "$SCRIPT_DIR/earthview-wallpaper_2.0.2_all.deb"
 
-echo "Package built: earthview-wallpaper_2.0.1_all.deb"
+echo "Package built: earthview-wallpaper_2.0.2_all.deb"

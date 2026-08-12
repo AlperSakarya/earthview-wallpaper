@@ -223,7 +223,14 @@ class EarthViewApp:
 
     def __init__(self):
         self.script_dir = Path(__file__).parent.absolute()
-        self.wallpaper_path = self.script_dir / "wallpaper.jpg"
+        # The downloaded wallpaper is per-user runtime data, so it must live in
+        # the user's cache directory. Writing next to the code breaks when the
+        # app is installed system-wide under root-owned /usr/share.
+        self.cache_dir = Path(
+            os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")
+        ) / "earthview"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.wallpaper_path = self.cache_dir / "wallpaper.jpg"
         self.logo_path = self.script_dir / "logo.png"
 
         # Config and state

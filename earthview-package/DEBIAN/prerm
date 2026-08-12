@@ -1,0 +1,57 @@
+#!/bin/bash
+# prerm - runs before the package is removed or upgraded.
+#
+# Stops any running Earth View instance so the upgrade replaces files that are
+# not in use, and records which users had it running so postinst can restart
+# it for them.
+
+set -e
+
+STATE_FILE=/run/earthview-wallpaper.restart
+TARGETS='/usr/share/earthview/indicator.py'
+
+# Record the users currently running the app (may be several on multi-seat).
+running_users() {
+    pgrep -f "$TARGETS" 2>/dev/null | while read -r pid; do
+        [ -n "$pid" ] || continue
+        ps -o user= -p "$pid" 2>/dev/null | tr -d ' '
+    done | sort -u
+}
+
+USERS="$(running_users || true)"
+
+if [ -n "$USERS" ]; then
+    echo "Stopping running Earth View Wallpaper instances..."
+
+    # Remember who to restart, but only on upgrade.
+    if [ "$1" = "upgrade" ]; then
+        # Braces so the redirection failure itself is silenced, not just
+        # printf's stderr.
+        { printf '%s\n' "$USERS" > "$STATE_FILE"; } 2>/dev/null || true
+    fi
+
+    # Ask nicely first so the app can save its config.
+    pkill -TERM -f "$TARGETS" 2>/dev/null || true
+
+    # Wait up to 5 seconds for a clean exit.
+    for _ in $(seq 1 10); do
+        pgrep -f "$TARGETS" >/dev/null 2>&1 || break
+        sleep 0.5
+    done
+
+    # Force any stragglers.
+    if pgrep -f "$TARGETS" >/dev/null 2>&1; then
+        echo "Instance did not exit in time; forcing shutdown."
+        pkill -KILL -f "$TARGETS" 2>/dev/null || true
+        sleep 0.5
+    fi
+fi
+
+# Drop stale single-instance locks so the next start is never blocked by a
+# lock left behind by a killed process.
+for lock in /home/*/.config/earthview/earthview.lock \
+            /root/.config/earthview/earthview.lock; do
+    [ -e "$lock" ] && rm -f "$lock" 2>/dev/null || true
+done
+
+exit 0

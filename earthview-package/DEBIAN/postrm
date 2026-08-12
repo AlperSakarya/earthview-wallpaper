@@ -1,0 +1,39 @@
+#!/bin/bash
+# postrm - runs after the package files are removed.
+#
+# Cleans up generated files that dpkg does not track (compiled bytecode,
+# leftover directories) so removal leaves nothing behind.
+
+set -e
+
+SHARE_DIR=/usr/share/earthview
+STATE_FILE=/run/earthview-wallpaper.restart
+
+case "$1" in
+    remove|purge)
+        # Bytecode is generated at runtime, so dpkg does not know about it.
+        if [ -d "$SHARE_DIR" ]; then
+            find "$SHARE_DIR" -name '__pycache__' -type d -prune \
+                -exec rm -rf {} + 2>/dev/null || true
+            find "$SHARE_DIR" -name '*.pyc' -delete 2>/dev/null || true
+            # Remove the directory only if it is now empty.
+            rmdir -p --ignore-fail-on-non-empty "$SHARE_DIR" 2>/dev/null || true
+        fi
+
+        rm -f "$STATE_FILE" 2>/dev/null || true
+
+        # Refresh caches so the menu entry disappears immediately.
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database /usr/share/applications/ 2>/dev/null || true
+        fi
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f /usr/share/icons/hicolor/ 2>/dev/null || true
+        fi
+        ;;
+esac
+
+# Per-user settings in ~/.config/earthview and cached wallpapers in
+# ~/.cache/earthview are intentionally left in place. Packages should not
+# delete data from users' home directories; remove them by hand if desired.
+
+exit 0

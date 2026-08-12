@@ -1,23 +1,69 @@
 #!/bin/bash
+# postinst - runs after the package is unpacked and configured.
+#
+# Ensures a clean install: removes stale bytecode from previous versions,
+# refreshes desktop/icon caches, and restarts the app for any user who had
+# it running before an upgrade.
+
 set -e
 
-# Create symlink for the executable
-if [ ! -L /usr/bin/earthview-wallpaper ]; then
-    ln -sf /usr/share/earthview/indicator.py /usr/bin/earthview-wallpaper
-fi
+SHARE_DIR=/usr/share/earthview
+STATE_FILE=/run/earthview-wallpaper.restart
 
-# Ensure the script is executable
-chmod +x /usr/share/earthview/indicator.py
+case "$1" in
+    configure)
+        # Remove bytecode compiled from previous versions. Python normally
+        # invalidates by mtime, but stale __pycache__ from an older layout can
+        # linger after modules are renamed or removed.
+        find "$SHARE_DIR" -name '__pycache__' -type d -prune \
+            -exec rm -rf {} + 2>/dev/null || true
+        find "$SHARE_DIR" -name '*.pyc' -delete 2>/dev/null || true
 
-# Update icon cache
-if command -v gtk-update-icon-cache > /dev/null 2>&1; then
-    gtk-update-icon-cache -f /usr/share/icons/hicolor/ 2>/dev/null || true
-fi
+        # The launcher must be executable.
+        chmod 755 "$SHARE_DIR/indicator.py" 2>/dev/null || true
+        chmod 755 /usr/bin/earthview-wallpaper 2>/dev/null || true
 
-# Update desktop database
-if command -v update-desktop-database > /dev/null 2>&1; then
-    update-desktop-database /usr/share/applications/ 2>/dev/null || true
-fi
+        # Refresh icon cache.
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f /usr/share/icons/hicolor/ 2>/dev/null || true
+        fi
 
-echo "Earth View Wallpaper Engine v2.0 installed successfully."
-echo "Launch from applications menu or run: earthview-wallpaper"
+        # Refresh desktop database.
+        if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database /usr/share/applications/ 2>/dev/null || true
+        fi
+
+        # Refresh the man page index.
+        if command -v mandb >/dev/null 2>&1; then
+            mandb -q 2>/dev/null || true
+        fi
+
+        # Restart for users who were running it before the upgrade.
+        if [ -s "$STATE_FILE" ]; then
+            while read -r user; do
+                [ -n "$user" ] || continue
+                id "$user" >/dev/null 2>&1 || continue
+
+                uid="$(id -u "$user")"
+                bus="/run/user/$uid/bus"
+                [ -S "$bus" ] || continue   # no active session, skip
+
+                echo "Restarting Earth View Wallpaper for $user..."
+                su -l "$user" -c \
+                    "DISPLAY=\"\${DISPLAY:-:0}\" \
+                     DBUS_SESSION_BUS_ADDRESS=unix:path=$bus \
+                     nohup earthview-wallpaper >/dev/null 2>&1 &" \
+                    >/dev/null 2>&1 || true
+            done < "$STATE_FILE"
+            rm -f "$STATE_FILE" 2>/dev/null || true
+        fi
+
+        echo "Earth View Wallpaper Engine installed successfully."
+        echo "Launch from the applications menu or run: earthview-wallpaper"
+        ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+esac
+
+exit 0

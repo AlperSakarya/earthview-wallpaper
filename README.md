@@ -32,8 +32,23 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 
 ```bash
 # Single command - installs package and all dependencies automatically
-sudo apt install ./earthview-wallpaper_2.0.0_all.deb
+sudo apt install ./earthview-wallpaper_2.0.3_all.deb
 ```
+
+The package handles upgrades cleanly: it stops any running instance before
+replacing files, clears stale locks, and restarts the app afterwards if it
+was running. Use `apt` rather than `dpkg -i` so dependencies resolve in one
+step.
+
+To remove it:
+
+```bash
+sudo apt remove earthview-wallpaper
+```
+
+Your settings in `~/.config/earthview/` and cached wallpaper in
+`~/.cache/earthview/` are left in place on removal; delete them by hand if
+you want a completely clean slate.
 
 ### Method 2: Manual
 
@@ -76,7 +91,17 @@ Settings are stored in `~/.config/earthview/`:
 - `config.json` - sources, intervals, mode settings
 - `history.json` - wallpaper change history
 - `favorites.json` - saved favorites
+- `recent_urls.json` - deduplication record preventing repeats within 7 days
 - `collections/` - user-created collections
+
+The currently applied wallpaper is cached at `~/.cache/earthview/wallpaper.jpg`.
+
+### Image variety
+
+Sources are used in strict rotation, so each one is selected in turn rather
+than at random. Every applied image URL is recorded, and no image repeats
+within seven days. At a 5-minute interval that means roughly 336 images per
+source per week, which every source can supply.
 
 ### API Keys (Optional)
 
@@ -144,9 +169,13 @@ python3 wallpaper-changer/migrate_data.py --input wallpaper-changer/data.json
 ## Building the Debian Package
 
 ```bash
-chmod 755 earthview-package/DEBIAN/postinst
-dpkg-deb --build earthview-package earthview-wallpaper_2.0.0_all.deb
+./build-package.sh
 ```
+
+This stages the source tree into the package layout, normalises ownership to
+`root:root` and permissions to Debian policy, compresses the changelog and man
+page, and builds `earthview-wallpaper_2.0.3_all.deb`. The result passes
+`lintian` with no errors or warnings.
 
 ## Fly-Over Routes
 

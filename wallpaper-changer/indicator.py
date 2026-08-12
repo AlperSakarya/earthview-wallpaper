@@ -50,7 +50,7 @@ from flyover import FlyOverManager
 
 APPINDICATOR_ID = 'earthview-wallpaper'
 APP_NAME = 'Earth View Wallpaper'
-VERSION = '2.0.2'
+VERSION = '2.0.3'
 
 # Default auto-change interval options (in seconds)
 INTERVAL_OPTIONS = {

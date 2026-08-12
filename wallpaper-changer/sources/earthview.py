@@ -207,9 +207,12 @@ class EarthViewSource(WallpaperSource):
                     candidates.append((dist, entry))
 
         if candidates:
-            # Sort by distance, pick from closest 5
+            # Sort by distance and sample from a wide pool of nearby images.
+            # A narrow pool (e.g. closest 5) causes the same handful of
+            # locations to repeat endlessly in location mode.
             candidates.sort(key=lambda x: x[0])
-            top = candidates[:min(5, len(candidates))]
+            pool_size = max(40, len(candidates) // 2)
+            top = candidates[:min(pool_size, len(candidates))]
             _, entry = random.choice(top)
             return self._parse_entry(entry)
 

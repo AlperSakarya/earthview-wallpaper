@@ -223,17 +223,22 @@ class SourceRegistry:
                                    max_attempts: int = 10) -> Optional[ImageResult]:
         """
         Fetch from a source, rejecting any URL seen in the last 7 days.
-        Retries up to max_attempts times to find a fresh image.
+
+        Retries only when the source returned a usable image that happened to
+        be a duplicate. A None return means the source itself failed (network
+        error, rate limit), so we stop immediately rather than burning API
+        quota on retries that cannot succeed.
         """
         for _ in range(max_attempts):
             try:
                 result = source.fetch_random()
-                if result and not self._recent.is_recent(result.url):
-                    return result
-                # URL was recent, try again
             except Exception as e:
                 print(f"Source {source.name} error: {e}")
-                break
+                return None
+            if result is None:
+                return None
+            if not self._recent.is_recent(result.url):
+                return result
         return None
 
     def fetch_random(self, source_id: Optional[str] = None) -> Optional[ImageResult]:
@@ -357,31 +362,76 @@ class SourceRegistry:
         # Fallback
         return self.fetch_random()
 
+    def _fetch_unique_near_location(self, source: WallpaperSource,
+                                    latitude: float, longitude: float,
+                                    radius_km: float,
+                                    max_attempts: int = 15) -> Optional[ImageResult]:
+        """
+        Fetch geo-filtered imagery from a source, rejecting recent URLs.
+
+        As with _fetch_unique_from_source, a None return ends the attempt
+        immediately since it signals source failure rather than a duplicate.
+        """
+        for _ in range(max_attempts):
+            try:
+                result = source.fetch_near_location(latitude, longitude, radius_km)
+            except Exception as e:
+                print(f"Source {source.name} geo error: {e}")
+                return None
+            if result is None:
+                return None
+            if not self._recent.is_recent(result.url):
+                return result
+        return None
+
     def fetch_near_location(self, latitude: float, longitude: float,
                             radius_km: float = 500,
                             source_id: Optional[str] = None) -> Optional[ImageResult]:
-        """Fetch an image near a location."""
+        """
+        Fetch an image with location awareness, using ALL active sources.
+
+        Location-capable sources (e.g. Earth View) return imagery near the
+        given coordinates. Sources without geographic indexing (satellites,
+        APOD, Unsplash) still participate via their normal random fetch, so
+        location mode never collapses onto a single source.
+
+        Uses the same round-robin cycle and 7-day dedup as fetch_random.
+        """
         if source_id:
             source = self._sources.get(source_id)
-            if source and source.supports_location:
-                result = source.fetch_near_location(latitude, longitude, radius_km)
-                if result:
-                    self._recent.mark_used(result.url)
-                return result
+            if not source:
+                return None
+            if source.supports_location:
+                result = self._fetch_unique_near_location(
+                    source, latitude, longitude, radius_km)
+            else:
+                result = self._fetch_unique_from_source(source)
+            if result:
+                self._recent.mark_used(result.url)
+            return result
+
+        sources = list(self.active_sources.values())
+        if not sources:
             return None
 
-        sources = list(self.location_sources.values())
-        if not sources:
-            return self.fetch_random()
+        num_sources = len(sources)
+        start_index = self._source_cycle_index % num_sources
 
-        random.shuffle(sources)
-        for source in sources:
-            try:
-                result = source.fetch_near_location(latitude, longitude, radius_km)
-                if result and not self._recent.is_recent(result.url):
-                    self._recent.mark_used(result.url)
-                    return result
-            except Exception:
-                continue
+        for i in range(num_sources):
+            idx = (start_index + i) % num_sources
+            source = sources[idx]
 
+            if source.supports_location:
+                result = self._fetch_unique_near_location(
+                    source, latitude, longitude, radius_km)
+            else:
+                result = self._fetch_unique_from_source(source)
+
+            if result:
+                self._source_cycle_index = (idx + 1) % num_sources
+                self._save_cycle_state()
+                self._recent.mark_used(result.url)
+                return result
+
+        # Nothing unique anywhere - fall back to normal rotation
         return self.fetch_random()

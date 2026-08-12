@@ -25,7 +25,11 @@ class NasaEpicSource(WallpaperSource):
     """
 
     API_URL = "https://epic.gsfc.nasa.gov/api/natural"
+    DATES_URL = "https://epic.gsfc.nasa.gov/api/natural/all"
     ARCHIVE_URL = "https://epic.gsfc.nasa.gov/archive/natural"
+
+    def __init__(self):
+        self._dates_cache: Optional[list] = None
 
     @property
     def name(self) -> str:
@@ -43,15 +47,42 @@ class NasaEpicSource(WallpaperSource):
     def supports_live(self) -> bool:
         return True
 
-    def _fetch_image_list(self) -> list:
-        """Fetch available images from EPIC API."""
+    def _fetch_image_list(self, date: Optional[str] = None) -> list:
+        """
+        Fetch available images from EPIC API.
+
+        Args:
+            date: Optional YYYY-MM-DD date. Omit for the most recent set.
+        """
         try:
-            response = requests.get(self.API_URL, timeout=15)
+            url = f"{self.API_URL}/date/{date}" if date else self.API_URL
+            response = requests.get(url, timeout=15)
             response.raise_for_status()
             return response.json()
         except Exception as e:
             print(f"NASA EPIC API error: {e}")
             return []
+
+    def _fetch_available_dates(self) -> list:
+        """
+        Fetch the list of all dates with available imagery (~3500 days).
+
+        Cached in memory so the archive index is only downloaded once
+        per process.
+        """
+        if self._dates_cache is not None:
+            return self._dates_cache
+        try:
+            response = requests.get(self.DATES_URL, timeout=20)
+            response.raise_for_status()
+            data = response.json()
+            self._dates_cache = [
+                entry["date"] for entry in data if entry.get("date")
+            ]
+        except Exception as e:
+            print(f"NASA EPIC dates error: {e}")
+            self._dates_cache = []
+        return self._dates_cache
 
     def _build_image_url(self, image_data: dict) -> str:
         """Build the full image URL from API data."""
@@ -93,13 +124,25 @@ class NasaEpicSource(WallpaperSource):
         )
 
     def fetch_random(self) -> Optional[ImageResult]:
-        """Fetch a random recent EPIC image."""
+        """
+        Fetch a random EPIC image from anywhere in the archive.
+
+        Draws from ~3500 available dates rather than only the most recent
+        set, so this source can supply a fresh image indefinitely.
+        """
+        dates = self._fetch_available_dates()
+        if dates:
+            for _ in range(3):
+                date = random.choice(dates)
+                images = self._fetch_image_list(date)
+                if images:
+                    return self._parse_entry(random.choice(images))
+
+        # Archive index unavailable - fall back to the latest set
         images = self._fetch_image_list()
         if not images:
             return None
-        
-        entry = random.choice(images)
-        return self._parse_entry(entry)
+        return self._parse_entry(random.choice(images))
 
     def fetch_latest(self) -> Optional[ImageResult]:
         """Fetch the most recent EPIC image."""

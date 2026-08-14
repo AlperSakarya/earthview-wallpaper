@@ -53,7 +53,7 @@ log = get_logger()
 
 APPINDICATOR_ID = 'earthview-wallpaper'
 APP_NAME = 'Earth View Wallpaper'
-VERSION = '2.0.6'
+VERSION = '2.1.0'
 
 # Default auto-change interval options (in seconds)
 INTERVAL_OPTIONS = {
@@ -339,9 +339,9 @@ class EarthViewApp:
         for source_id, cfg in configs.items():
             self.registry.set_config(source_id, cfg)
 
-        active = self.config.get("active_sources", [])
-        if active:
-            self.registry.set_active_sources(active)
+        # Always applied, including when empty, so clearing the lock in
+        # Preferences actually restores every source.
+        self.registry.set_active_sources(self.config.get("active_sources", []))
 
 
     def build_menu(self):
@@ -373,6 +373,36 @@ class EarthViewApp:
                 submenu_live.append(item)
         item_live.set_submenu(submenu_live)
         menu.append(item_live)
+
+        menu.append(gtk.SeparatorMenuItem())
+
+        # -- Lock to sources --
+        # Persistent selection controlling which sources automatic changes may
+        # use. An empty selection means every source (randomize).
+        locked = self.config.get("active_sources", [])
+        item_lock = gtk.MenuItem(label=f'Lock to Sources  [{self._lock_summary()}]')
+        submenu_lock = gtk.Menu()
+
+        item_all = gtk.CheckMenuItem(label='All Sources (randomize)')
+        item_all.set_active(not locked)
+        item_all.connect('toggled', self.on_unlock_all_sources)
+        submenu_lock.append(item_all)
+
+        submenu_lock.append(gtk.SeparatorMenuItem())
+
+        for source_id, source in self.registry.all_sources.items():
+            item = gtk.CheckMenuItem(label=source.name)
+            item.set_active(source_id in locked)
+            item.connect('toggled', self.on_toggle_source_lock, source_id)
+            submenu_lock.append(item)
+
+        submenu_lock.append(gtk.SeparatorMenuItem())
+        hint = gtk.MenuItem(label='Unchecking all reverts to randomize')
+        hint.set_sensitive(False)
+        submenu_lock.append(hint)
+
+        item_lock.set_submenu(submenu_lock)
+        menu.append(item_lock)
 
         menu.append(gtk.SeparatorMenuItem())
 
@@ -660,6 +690,64 @@ class EarthViewApp:
         self.history.clear()
         GLib.idle_add(self._refresh_menu)
 
+
+    def _lock_summary(self) -> str:
+        """Short description of the current source lock for the menu label."""
+        locked = self.config.get("active_sources", [])
+        if not locked:
+            return "All"
+        names = [self.registry.all_sources[sid].name
+                 for sid in locked if sid in self.registry.all_sources]
+        if not names:
+            return "All"
+        if len(names) == 1:
+            return names[0]
+        if len(names) <= 2:
+            return " + ".join(names)
+        return f"{len(names)} sources"
+
+    def _apply_source_lock(self, locked: list):
+        """
+        Persist and apply a source lock.
+
+        An empty list means no lock: every source participates.
+        """
+        self.config.set("active_sources", locked)
+        self.registry.set_active_sources(locked)
+
+        if locked:
+            log.info("locked to sources: %s", ", ".join(locked))
+        else:
+            log.info("source lock cleared, using all sources")
+
+        GLib.idle_add(self._refresh_menu)
+
+    def on_toggle_source_lock(self, widget, source_id):
+        """Add or remove a single source from the lock."""
+        locked = list(self.config.get("active_sources", []))
+
+        if widget.get_active():
+            if source_id not in locked:
+                locked.append(source_id)
+        else:
+            locked = [s for s in locked if s != source_id]
+
+        self._apply_source_lock(locked)
+
+        if locked:
+            self.show_notification(f"Locked to: {self._lock_summary()}")
+        else:
+            self.show_notification("Using all sources (randomize)")
+
+    def on_unlock_all_sources(self, widget):
+        """Clear the lock so all sources are used."""
+        if not widget.get_active():
+            # Unchecking "All" with no lock set is meaningless; restore it.
+            if not self.config.get("active_sources", []):
+                widget.set_active(True)
+            return
+        self._apply_source_lock([])
+        self.show_notification("Using all sources (randomize)")
 
     def on_preferences(self, _):
         """Open preferences dialog."""

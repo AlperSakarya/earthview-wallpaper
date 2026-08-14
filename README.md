@@ -32,7 +32,7 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 
 ```bash
 # Single command - installs package and all dependencies automatically
-sudo apt install ./earthview-wallpaper_2.0.6_all.deb
+sudo apt install ./earthview-wallpaper_2.1.0_all.deb
 ```
 
 The package handles upgrades cleanly: it stops any running instance before
@@ -75,15 +75,30 @@ earthview-wallpaper
 ### System Tray Menu
 
 - **Change Wallpaper** - random image from active sources
-- **Change From Source** - pick a specific source
+- **Change From Source** - pick a specific source for one change (ignores the lock)
 - **Live Satellite** - get the most recent image from live feeds
+- **Lock to Sources** - restrict changes to one or more sources, or randomize
 - **Collections** - browse themed image sets
 - **Favorites** - manage and use saved wallpapers
 - **Fly-Over Mode** - enable location or route-based selection
 - **Time-Aware Mode** - adapt to time of day
 - **Auto-Change Interval** - set timer (5min to 24h)
 - **History** - revisit recent wallpapers
+- **View Log** - open the log file for troubleshooting
 - **Preferences** - full configuration dialog
+
+### Locking to specific sources
+
+Open **Lock to Sources** in the tray menu and tick the sources you want. Only
+those are used for automatic and manual changes, and they rotate evenly among
+themselves. Tick a single source to use only that one, for example Unsplash.
+
+Choose **All Sources (randomize)**, or untick everything, to go back to using
+every source. The same checkboxes appear under Preferences > Sources. The
+current lock is shown in the menu label, e.g. `Lock to Sources [Unsplash]`.
+
+**Change From Source** deliberately ignores the lock, since it is a one-off
+request for a specific source.
 
 ### Configuration
 
@@ -174,7 +189,7 @@ python3 wallpaper-changer/migrate_data.py --input wallpaper-changer/data.json
 
 This stages the source tree into the package layout, normalises ownership to
 `root:root` and permissions to Debian policy, compresses the changelog and man
-page, and builds `earthview-wallpaper_2.0.6_all.deb`. The result passes
+page, and builds `earthview-wallpaper_2.1.0_all.deb`. The result passes
 `lintian` with no errors or warnings.
 
 ## Fly-Over Routes

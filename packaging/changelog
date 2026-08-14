@@ -1,3 +1,21 @@
+earthview-wallpaper (2.1.0) stable; urgency=medium
+
+  * Add a source lock. A new "Lock to Sources" tray submenu restricts
+    automatic and manual changes to a chosen source, or several, so it is now
+    possible to run only Unsplash, or only the live satellites. Selecting
+    "All Sources" or clearing the selection returns to using everything.
+  * Locked sources rotate evenly among themselves, and no image still repeats
+    within seven days.
+  * The Preferences source checkboxes now share these semantics. Previously
+    ticking one box while none were recorded silently restricted the app to
+    that single source, and unticking the last box left nothing usable.
+  * Clearing the lock in Preferences now takes effect immediately instead of
+    leaving the previous restriction applied until restart.
+  * "Change From Source" continues to ignore the lock, since it is an explicit
+    one-off request.
+
+ -- Alper Sakarya <earthview@example.com>  Wed, 12 Aug 2026 15:00:00 +0000
+
 earthview-wallpaper (2.0.6) stable; urgency=high
 
   * Fix a package that could not start at all. The 2.0.4 and 2.0.5 builds

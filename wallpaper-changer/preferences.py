@@ -296,16 +296,34 @@ Desert Abstract, Human Patterns. Add your own via the collections folder.
     # -- Callbacks --
 
     def _on_source_toggled(self, widget, source_id):
-        """Handle source enable/disable."""
-        active = self.app.config.get("active_sources", [])
+        """
+        Add or remove a source from the lock.
+
+        Mirrors the tray menu: an empty selection means every source is used.
+        Because an empty list and a full list behave identically, unchecking
+        the last remaining source reverts to using them all rather than
+        leaving no usable source.
+        """
+        locked = list(self.app.config.get("active_sources", []))
+        all_ids = list(self.app.registry.all_sources.keys())
+
+        # An empty lock displays as every box checked. Unchecking one from that
+        # state means "all except this one", so seed the list first.
+        if not locked:
+            locked = list(all_ids)
+
         if widget.get_active():
-            if source_id not in active:
-                active.append(source_id)
+            if source_id not in locked:
+                locked.append(source_id)
         else:
-            if source_id in active:
-                active.remove(source_id)
-        self.app.config.set("active_sources", active)
-        self.app.registry.set_active_sources(active)
+            locked = [s for s in locked if s != source_id]
+
+        # Full selection is stored as no lock, keeping one canonical form.
+        if set(locked) == set(all_ids):
+            locked = []
+
+        self.app.config.set("active_sources", locked)
+        self.app.registry.set_active_sources(locked)
 
     def _on_api_key_changed(self, widget, source_id):
         """Handle API key entry change."""

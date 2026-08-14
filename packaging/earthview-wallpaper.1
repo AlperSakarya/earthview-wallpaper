@@ -1,4 +1,4 @@
-.TH EARTHVIEW-WALLPAPER 1 "August 2026" "2.0.6" "User Commands"
+.TH EARTHVIEW-WALLPAPER 1 "August 2026" "2.1.0" "User Commands"
 .SH NAME
 earthview\-wallpaper \- multi\-source desktop wallpaper engine
 .SH SYNOPSIS
@@ -34,6 +34,11 @@ Scenery, aerial, and space photography.
 .B Random
 Sources are used in strict rotation so each is selected in turn.
 .TP
+.B Locked
+Restrict changes to one or more chosen sources via Lock to Sources in the tray
+menu. Locked sources rotate evenly among themselves. Change From Source
+ignores the lock, being an explicit one-off request.
+.TP
 .B Time\-aware
 Selects imagery matching the current time of day.
 .TP
@@ -45,7 +50,7 @@ No image repeats within seven days. Used URLs are recorded in
 .SH FILES
 .TP
 .I ~/.config/earthview/config.json
-Active sources, interval, and mode settings.
+Active sources, source lock, interval, and mode settings.
 .TP
 .I ~/.config/earthview/history.json
 Recently applied wallpapers.

@@ -3,6 +3,14 @@
 A multi-source desktop wallpaper changer that pulls imagery from weather
 satellites, space telescopes, and curated photography archives.
 
+This started life as a small Google Earth View wallpaper script, forked from
+[limhenry/earthview](https://github.com/limhenry/earthview) back in 2016. It
+set a random satellite photo from a single list and did nothing else. It has
+since grown into a plugin-based engine spanning seven providers, live satellite
+feeds, source locking, scenic fly-over routes and time-aware selection, so it
+now lives here as its own project rather than as a fork. See
+[Project history](#project-history) for how it got here.
+
 ## Sources
 
 Every source discovers its images at run time. No image identifiers are stored
@@ -333,6 +341,30 @@ gsettings get org.gnome.desktop.background picture-uri-dark
 Both keys are set on every change. If the desktop points at a file that no
 longer exists it renders black; the application detects that on startup and
 repairs it.
+
+## Project history
+
+The project began in 2016 as a fork of
+[limhenry/earthview](https://github.com/limhenry/earthview), a script that set
+a random Google Earth View satellite photo as the desktop wallpaper. That was
+the whole of it: one source, one list, one action.
+
+What it is now:
+
+| then | now |
+|---|---|
+| 1 source (Google Earth View) | 7 providers, plugin based |
+| a static bundled list | every image discovered at run time |
+| set a wallpaper | live satellite feeds, fly-over routes, time-aware selection |
+| no settings | source locking, collections, favourites, history, notifications |
+| a loose script | Debian package, logging, man page, lintian clean |
+
+Google Earth View is still one of the seven sources, and the original data set
+is still in the repository. It is simply no longer the whole story, which is
+why the project moved out of the fork network and into its own repository.
+
+Credit to [Henry Lim](https://github.com/limhenry) for the original project and
+the Earth View data set that this grew out of.
 
 ## License
 

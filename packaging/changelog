@@ -1,3 +1,16 @@
+earthview-wallpaper (2.3.0) stable; urgency=medium
+
+  * Add a setting to turn desktop notifications off, under Notifications in
+    the tray menu and in Preferences.
+  * Notifications are now silenced automatically while the monitor is powered
+    down or the session is locked, because delivering one can wake a sleeping
+    display. This is on by default and can be turned off separately from the
+    notifications setting itself.
+  * The Notifications menu reports the current screen state, and suppressed
+    notifications are recorded in the log with the reason.
+
+ -- Alper Sakarya <earthview@example.com>  Mon, 17 Aug 2026 10:30:00 +0000
+
 earthview-wallpaper (2.2.0) stable; urgency=high
 
   * Add Wikimedia Commons as a source: roughly 1,600 peer-reviewed landscape

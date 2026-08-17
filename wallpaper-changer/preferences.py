@@ -232,6 +232,36 @@ class PreferencesDialog(gtk.Dialog):
             radio.connect('toggled', self._on_route_selected, route_id)
             box.pack_start(radio, False, False, 0)
 
+        box.pack_start(gtk.Separator(), False, False, 10)
+
+        # Notifications section
+        notif_label = gtk.Label()
+        notif_label.set_markup(
+            "<b>Notifications</b>\n"
+            "A notification can wake a monitor that has powered down, so it "
+            "is worth silencing them if the machine sits idle.")
+        notif_label.set_xalign(0)
+        notif_label.set_line_wrap(True)
+        box.pack_start(notif_label, False, False, 0)
+
+        notif_check = gtk.CheckButton(label="Show desktop notifications")
+        notif_check.set_active(
+            self.app.config.get("notifications_enabled", True))
+        notif_check.connect('toggled', self._on_notifications_toggled)
+        box.pack_start(notif_check, False, False, 0)
+
+        screen_check = gtk.CheckButton(
+            label="Stay quiet while the screen is off or locked")
+        screen_check.set_active(
+            self.app.config.get("notifications_respect_screen", True))
+        screen_check.connect('toggled', self._on_notif_screen_toggled)
+        box.pack_start(screen_check, False, False, 0)
+
+        state = gtk.Label(label=f"Screen right now: {self.app.screen.describe()}")
+        state.set_xalign(0)
+        state.get_style_context().add_class("dim-label")
+        box.pack_start(state, False, False, 0)
+
         scrolled = gtk.ScrolledWindow()
         scrolled.set_policy(gtk.PolicyType.NEVER, gtk.PolicyType.AUTOMATIC)
         scrolled.add(box)
@@ -357,6 +387,14 @@ Desert Abstract, Human Patterns. Add your own via the collections folder.
         if widget.get_active():
             self.app.flyover.mode = mode
             self.app.config.set("flyover", self.app.flyover.get_config())
+
+    def _on_notifications_toggled(self, widget):
+        """Turn desktop notifications on or off."""
+        self.app.config.set("notifications_enabled", widget.get_active())
+
+    def _on_notif_screen_toggled(self, widget):
+        """Toggle silencing notifications while the screen is off or locked."""
+        self.app.config.set("notifications_respect_screen", widget.get_active())
 
     def _on_route_selected(self, widget, route_id):
         """Handle route selection."""

@@ -33,7 +33,7 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 
 ```bash
 # Single command - installs package and all dependencies automatically
-sudo apt install ./earthview-wallpaper_2.2.0_all.deb
+sudo apt install ./earthview-wallpaper_2.3.0_all.deb
 ```
 
 The package handles upgrades cleanly: it stops any running instance before
@@ -79,6 +79,7 @@ earthview-wallpaper
 - **Change From Source** - pick a specific source for one change (ignores the lock)
 - **Live Satellite** - get the most recent image from live feeds
 - **Lock to Sources** - restrict changes to one or more sources, or randomize
+- **Notifications** - turn notifications off, or keep them quiet while the screen is off
 - **Collections** - browse themed image sets
 - **Favorites** - manage and use saved wallpapers
 - **Fly-Over Mode** - enable location or route-based selection
@@ -115,6 +116,21 @@ Settings are stored in `~/.config/earthview/`:
 - `collections/` - user-created collections
 
 The currently applied wallpaper is cached at `~/.cache/earthview/wallpaper.jpg`.
+
+### Notifications
+
+Each wallpaper change shows a notification by default. A notification can wake
+a monitor that has powered down, which is unwelcome if the machine sits idle,
+so two settings are available under **Notifications** in the tray menu and in
+Preferences:
+
+- **Show desktop notifications** — turn them off entirely
+- **Stay quiet while the screen is off or locked** — on by default; keeps
+  notifications from waking a sleeping display while still showing them
+  normally when you are at the machine
+
+The menu also reports the current screen state, and any suppressed
+notification is written to the log with its reason.
 
 ### Image variety
 
@@ -194,7 +210,7 @@ python3 wallpaper-changer/migrate_data.py --input wallpaper-changer/data.json
 
 This stages the source tree into the package layout, normalises ownership to
 `root:root` and permissions to Debian policy, compresses the changelog and man
-page, and builds `earthview-wallpaper_2.2.0_all.deb`. The result passes
+page, and builds `earthview-wallpaper_2.3.0_all.deb`. The result passes
 `lintian` with no errors or warnings.
 
 ## Fly-Over Routes

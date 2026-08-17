@@ -47,13 +47,14 @@ from wallpaper_collections.manager import CollectionManager
 from timeaware import TimeAwareManager
 from flyover import FlyOverManager
 from logsetup import setup_logging, get_logger, log_path
+from screenstate import ScreenState
 
 log = get_logger()
 
 
 APPINDICATOR_ID = 'earthview-wallpaper'
 APP_NAME = 'Earth View Wallpaper'
-VERSION = '2.2.0'
+VERSION = '2.3.0'
 
 # Some providers, Wikimedia Commons among them, reject requests without a
 # descriptive User-Agent identifying the client and a contact point. Requests
@@ -90,13 +91,27 @@ class Config:
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
     def _load(self) -> dict:
+        defaults = self._defaults()
         if self.config_file.exists():
             try:
                 with open(self.config_file, 'r') as f:
-                    return json.load(f)
+                    stored = json.load(f)
+                # Merge in any keys added by a newer version, so upgrading does
+                # not leave new settings absent from an existing config.
+                added = sorted(set(defaults) - set(stored))
+                merged = {**defaults, **stored}
+                if added:
+                    # Persist immediately, otherwise the file only gains the
+                    # new keys the next time something happens to save.
+                    try:
+                        with open(self.config_file, 'w') as f:
+                            json.dump(merged, f, indent=2)
+                    except IOError:
+                        pass
+                return merged
             except (json.JSONDecodeError, IOError):
                 pass
-        return self._defaults()
+        return defaults
 
     def _defaults(self) -> dict:
         return {
@@ -107,6 +122,10 @@ class Config:
             "source_configs": {},
             "active_collection": None,
             "last_source": None,
+            # Notifications can wake a monitor that has powered down, so they
+            # are suppressed while the screen is off or locked even when on.
+            "notifications_enabled": True,
+            "notifications_respect_screen": True,
         }
 
     def save(self):
@@ -270,6 +289,7 @@ class EarthViewApp:
         self.current_image: ImageResult = None
         self._auto_change_timer = None
         self._auto_change_interval = self.config.get("auto_change_interval", 3600)
+        self.screen = ScreenState()
 
         # Initialize notification system
         notify.init(APPINDICATOR_ID)
@@ -560,6 +580,31 @@ class EarthViewApp:
 
         menu.append(gtk.SeparatorMenuItem())
 
+        # -- Notifications --
+        item_notif = gtk.MenuItem(label='Notifications')
+        submenu_notif = gtk.Menu()
+
+        item_notif_on = gtk.CheckMenuItem(label='Show notifications')
+        item_notif_on.set_active(
+            self.config.get("notifications_enabled", True))
+        item_notif_on.connect('toggled', self.on_toggle_notifications)
+        submenu_notif.append(item_notif_on)
+
+        item_notif_screen = gtk.CheckMenuItem(
+            label='Stay quiet when screen is off or locked')
+        item_notif_screen.set_active(
+            self.config.get("notifications_respect_screen", True))
+        item_notif_screen.connect('toggled', self.on_toggle_notif_screen)
+        submenu_notif.append(item_notif_screen)
+
+        submenu_notif.append(gtk.SeparatorMenuItem())
+        state = gtk.MenuItem(label=f'Screen: {self.screen.describe()}')
+        state.set_sensitive(False)
+        submenu_notif.append(state)
+
+        item_notif.set_submenu(submenu_notif)
+        menu.append(item_notif)
+
         # -- Autostart --
         item_autostart = gtk.CheckMenuItem(label='Start at login')
         autostart_file = Path.home() / ".config" / "autostart" / "earthview-wallpaper.desktop"
@@ -771,6 +816,23 @@ class EarthViewApp:
             return
         self._apply_source_lock([])
         self.show_notification("Using all sources (randomize)")
+
+    def on_toggle_notifications(self, widget):
+        """Turn desktop notifications on or off."""
+        enabled = widget.get_active()
+        self.config.set("notifications_enabled", enabled)
+        log.info("notifications %s", "enabled" if enabled else "disabled")
+        if enabled:
+            # Confirm only when turning on; confirming a mute is contradictory.
+            self.show_notification("Notifications enabled")
+        GLib.idle_add(self._refresh_menu)
+
+    def on_toggle_notif_screen(self, widget):
+        """Toggle suppressing notifications while the screen is off."""
+        respect = widget.get_active()
+        self.config.set("notifications_respect_screen", respect)
+        log.info("respect screen state for notifications: %s", respect)
+        GLib.idle_add(self._refresh_menu)
 
     def on_preferences(self, _):
         """Open preferences dialog."""
@@ -1055,7 +1117,25 @@ X-GNOME-Autostart-enabled=true
     # -- Notifications --
 
     def show_notification(self, message, level="info"):
-        """Show a desktop notification."""
+        """
+        Show a desktop notification, unless it would be unwanted.
+
+        Skipped when the user has turned notifications off, and by default when
+        the monitor has powered down or the session is locked, since a
+        notification can wake a sleeping display.
+        """
+        if not self.config.get("notifications_enabled", True):
+            log.debug("notification suppressed (disabled): %s",
+                      message.replace("\n", " ")[:60])
+            return
+
+        if self.config.get("notifications_respect_screen", True):
+            if not self.screen.is_visible():
+                log.info("notification suppressed (%s): %s",
+                         self.screen.describe(),
+                         message.replace("\n", " ")[:60])
+                return
+
         icons = {
             "success": "dialog-information",
             "error": "dialog-error",
@@ -1064,8 +1144,8 @@ X-GNOME-Autostart-enabled=true
         icon = icons.get(level, "dialog-information")
         try:
             notify.Notification.new(APP_NAME, message, icon).show()
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("could not show notification: %s", e)
 
 
 def acquire_lock():

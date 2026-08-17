@@ -1,21 +1,24 @@
 """
 Unsplash source plugin.
 
-Beautiful photography from Unsplash - aerial, satellite, scenery, nature wallpapers.
+Scenery, aerial, and space photography via the official Unsplash API.
 
-Supports two modes:
-1. API mode (with free API key from https://unsplash.com/developers) - full access
-2. Direct URL mode (no key needed) - uses known Unsplash image URLs with full resolution
+An API key is required. Unsplash offers no usable keyless access:
+    unsplash.com/napi/search  responds 307 and refuses non-browser clients
+    source.unsplash.com       retired, responds 503
+    api.unsplash.com          401 without a Client-ID
 
-The source supports multiple search topics: aerial, satellite, scenery, nature, etc.
-Users can configure which topics to pull from.
+Get a free key at https://unsplash.com/developers and enter it under
+Preferences > Sources. Without one this source reports itself unavailable and
+is skipped, rather than substituting arbitrary images.
+
+Results are filtered to reject portraits and other people-centric photos,
+which Unsplash search returns freely for landscape-sounding queries.
 """
 
 import random
-import re
 import requests
 from typing import Optional, List
-from bs4 import BeautifulSoup
 
 from .base import WallpaperSource, ImageResult, ImageCategory
 
@@ -27,96 +30,58 @@ except ImportError:  # standalone use without the app package
     log = logging.getLogger("earthview.unsplash")
 
 
+# Terms that indicate a photo is centred on people rather than landscape.
+# Checked against the description and tags returned by the API.
+PEOPLE_TERMS = {
+    "man", "woman", "men", "women", "person", "people", "boy", "girl",
+    "portrait", "face", "smile", "smiling", "selfie", "model", "headshot",
+    "beard", "hair", "haircut", "makeup", "skin", "lips", "eyes",
+    "child", "children", "baby", "kid", "family", "couple", "wedding",
+    "human", "female", "male", "guy", "lady", "hands", "feet",
+    "fashion", "clothing", "shirt", "dress", "suit",
+}
 
-# Unsplash direct image URL format:
-# https://images.unsplash.com/photo-{ID}?w=1920&q=80  (sized)
-# https://images.unsplash.com/photo-{ID}  (original full resolution)
-#
-# To get full resolution for wallpaper, we append ?w=3840&q=90 for 4K quality
-
-# Curated photo IDs covering multiple themes - all verified high-quality wallpapers
-CURATED_PHOTOS = {
-    "aerial": [
-        {"id": "photo-1451187580459-43490279c0fa", "title": "Earth at Night", "category": "night"},
-        {"id": "photo-1614730321146-b6fa6a46bcb4", "title": "Earth from Space", "category": "daytime"},
-        {"id": "photo-1446776811953-b23d57bd21aa", "title": "Blue Marble", "category": "daytime"},
-        {"id": "photo-1517483000871-1dbf64a6e1c6", "title": "Aerial Coastline", "category": "daytime"},
-        {"id": "photo-1507400492013-162706c8c05e", "title": "River Delta from Above", "category": "daytime"},
-        {"id": "photo-1488866022916-f7f2a4b16a44", "title": "Desert Dunes from Above", "category": "daytime"},
-        {"id": "photo-1454789548928-9efd52dc4031", "title": "Earth Horizon from Space", "category": "daytime"},
-        {"id": "photo-1504608524841-42fe6f032b4b", "title": "Aerial Turquoise Waters", "category": "daytime"},
-    ],
-    "scenery": [
-        {"id": "photo-1506905925346-21bda4d32df4", "title": "Mountain Peaks", "category": "daytime"},
-        {"id": "photo-1470071459604-3b5ec3a7fe05", "title": "Foggy Forest Valley", "category": "sunrise"},
-        {"id": "photo-1472214103451-9374bd1c798e", "title": "Green Valley Landscape", "category": "daytime"},
-        {"id": "photo-1465056836900-8f1e90f88e42", "title": "Desert Highway", "category": "sunset"},
-        {"id": "photo-1433086966358-54859d0ed716", "title": "Waterfall in Forest", "category": "daytime"},
-        {"id": "photo-1501785888041-af3ef285b470", "title": "Lake Reflection Mountains", "category": "sunrise"},
-        {"id": "photo-1469474968028-56623f02e42e", "title": "Golden Hills Sunset", "category": "sunset"},
-        {"id": "photo-1447752875215-b2761acb3c5d", "title": "Autumn Forest Path", "category": "daytime"},
-        {"id": "photo-1505765050516-f72dcac9c60e", "title": "Dramatic Cliffs Ocean", "category": "daytime"},
-        {"id": "photo-1540206395-68808572332f", "title": "Mountain Lake Sunrise", "category": "sunrise"},
-        {"id": "photo-1464822759023-fed622ff2c3b", "title": "Mountain Summit Clouds", "category": "daytime"},
-        {"id": "photo-1500534314209-a25ddb2bd429", "title": "Starry Night Mountains", "category": "night"},
-        {"id": "photo-1475924156734-496f6cac6ec1", "title": "Northern Lights", "category": "night"},
-        {"id": "photo-1509316975850-ff9c5deb0cd9", "title": "Lavender Fields Sunset", "category": "sunset"},
-        {"id": "photo-1507003211169-0a1dd7228f2d", "title": "Tropical Beach Paradise", "category": "daytime"},
-    ],
-    "space": [
-        {"id": "photo-1419242902214-272b3f66ee7a", "title": "Milky Way Galaxy", "category": "night"},
-        {"id": "photo-1464802686167-b939a6910659", "title": "Nebula", "category": "night"},
-        {"id": "photo-1462331940025-496dfbfc7564", "title": "Deep Space Nebula", "category": "night"},
-        {"id": "photo-1543722530-d2c3201371e7", "title": "Saturn Rings", "category": "night"},
-        {"id": "photo-1516339901601-2e1b62dc0c45", "title": "Galaxy Spiral", "category": "night"},
-        {"id": "photo-1502134249126-9f3755a50d78", "title": "Aurora Borealis", "category": "night"},
-    ],
-    "nature": [
-        {"id": "photo-1441974231531-c6227db76b6e", "title": "Sunlit Forest", "category": "daytime"},
-        {"id": "photo-1518173946687-a4c8892bbd9f", "title": "Green Mountains", "category": "daytime"},
-        {"id": "photo-1431440869543-efaf3388c585", "title": "Ocean Waves", "category": "daytime"},
-        {"id": "photo-1470252649378-9c29740c9fa8", "title": "Golden Sunrise Field", "category": "sunrise"},
-        {"id": "photo-1500382017468-9049fed747ef", "title": "Golden Fields", "category": "sunset"},
-        {"id": "photo-1494500764479-0c8f2919a3d8", "title": "Forest Canopy", "category": "daytime"},
-        {"id": "photo-1502239608882-93b729c6af43", "title": "Sunset Above Clouds", "category": "sunset"},
-    ],
+# Terms that confirm a photo is the kind of scenery this app is for.
+SUBJECT_TERMS = {
+    "landscape", "mountain", "mountains", "ocean", "sea", "coast", "beach",
+    "forest", "tree", "trees", "desert", "dune", "canyon", "valley",
+    "glacier", "ice", "snow", "lake", "river", "waterfall", "island",
+    "aerial", "drone", "satellite", "earth", "space", "galaxy", "nebula",
+    "stars", "sky", "clouds", "sunset", "sunrise", "aurora", "volcano",
+    "field", "meadow", "hill", "cliff", "reef", "lagoon", "fjord",
+    "nature", "scenery", "horizon", "terrain", "geology", "planet",
 }
 
 
 class UnsplashSource(WallpaperSource):
     """
-    Unsplash - High-quality photography for wallpapers.
-    
-    Supports aerial, scenery, nature, and space themes.
-    Can work without an API key using curated photo URLs, or with
-    an API key for unlimited dynamic searches.
-    
-    Also supports scraping Unsplash search pages for fresh content.
+    Unsplash - scenery, aerial, and space photography.
+
+    Requires a free API key. Filters out people-centric results so the
+    wallpaper stays on subject.
     """
 
     API_URL = "https://api.unsplash.com"
-    SEARCH_URL = "https://unsplash.com/napi/search/photos"
 
-    # Topics to search when using API/scraping
     SEARCH_TOPICS = [
-        "scenery wallpaper",
-        "landscape nature",
-        "aerial photography",
-        "earth from space",
+        "aerial landscape",
         "mountain landscape",
+        "earth from space",
         "ocean aerial view",
-        "northern lights",
         "desert landscape",
-        "tropical island aerial",
         "glacier landscape",
-        "volcano aerial",
+        "forest aerial",
         "canyon landscape",
+        "northern lights",
+        "nebula galaxy",
+        "volcano aerial",
+        "tropical island aerial",
+        "coastline aerial",
+        "sand dunes aerial",
     ]
 
     def __init__(self):
         self._api_key: Optional[str] = None
-        self._active_topics: List[str] = ["aerial", "scenery", "space", "nature"]
-        self._search_enabled = True  # Try to fetch fresh images from Unsplash
 
     @property
     def name(self) -> str:
@@ -128,277 +93,172 @@ class UnsplashSource(WallpaperSource):
 
     @property
     def description(self) -> str:
-        return "High-quality scenery, aerial, nature, and space wallpapers from Unsplash"
+        return ("Scenery, aerial and space photography "
+                "(needs a free key from unsplash.com/developers)")
 
     @property
     def requires_api_key(self) -> bool:
-        return False  # Works without key using curated + scraping
+        return True
 
     @property
     def supports_category(self) -> bool:
         return True
 
+    def is_available(self) -> bool:
+        """Unusable without a key, so the rotation skips it entirely."""
+        return bool(self._api_key)
+
     def configure(self, config: dict) -> None:
-        """
-        Configure the Unsplash source.
-        
-        Config options:
-            api_key: Unsplash API access key (optional, enables full API access)
-            topics: List of active topics ["aerial", "scenery", "space", "nature"]
-            search_enabled: Whether to scrape fresh images (default True)
-        """
+        """Accept the Unsplash API access key."""
         if "api_key" in config:
-            self._api_key = config["api_key"]
-        if "topics" in config:
-            self._active_topics = config["topics"]
-        if "search_enabled" in config:
-            self._search_enabled = config["search_enabled"]
+            key = (config["api_key"] or "").strip()
+            self._api_key = key or None
 
-    def _get_full_url(self, photo_id: str) -> str:
-        """Build a full-resolution wallpaper URL from a photo ID."""
-        # Request 4K resolution with high quality
-        return f"https://images.unsplash.com/{photo_id}?w=3840&h=2160&fit=crop&q=90"
+    @staticmethod
+    def _terms_of(photo: dict) -> set:
+        """Collect lowercase words describing a photo, from text and tags."""
+        words = set()
+        for field in ("description", "alt_description"):
+            text = photo.get(field) or ""
+            words.update(w.strip(".,!?()[]'\"").lower() for w in text.split())
+        for tag in photo.get("tags") or []:
+            title = (tag.get("title") or "").lower()
+            words.update(title.split())
+        return words
 
-    def _category_from_string(self, cat_str: str) -> ImageCategory:
-        """Convert string category to ImageCategory enum."""
-        mapping = {
-            "sunrise": ImageCategory.SUNRISE,
-            "daytime": ImageCategory.DAYTIME,
-            "sunset": ImageCategory.SUNSET,
-            "night": ImageCategory.NIGHT,
-        }
-        return mapping.get(cat_str, ImageCategory.ANY)
+    def _is_acceptable(self, photo: dict) -> bool:
+        """
+        Reject people-centric photos.
 
-    def _parse_curated(self, entry: dict, topic: str) -> ImageResult:
-        """Convert curated entry to ImageResult."""
-        url = self._get_full_url(entry["id"])
+        Unsplash returns portraits for queries like "scenery wallpaper", so
+        results are screened rather than trusted. A photo is rejected if it
+        mentions people and does not clearly mention scenery; when it has no
+        usable description at all it is rejected as unverifiable.
+        """
+        words = self._terms_of(photo)
+        if not words:
+            return False
+
+        has_people = bool(words & PEOPLE_TERMS)
+        has_subject = bool(words & SUBJECT_TERMS)
+
+        if has_people and not has_subject:
+            return False
+        return has_subject
+
+    def _wallpaper_url(self, photo: dict) -> Optional[str]:
+        """Highest quality URL, sized for a wallpaper."""
+        urls = photo.get("urls", {})
+        url = urls.get("raw") or urls.get("full") or urls.get("regular")
+        if not url:
+            return None
+        separator = "&" if "?" in url else "?"
+        return f"{url}{separator}w=3840&h=2160&fit=crop&q=90"
+
+    def _categorise(self, words: set) -> ImageCategory:
+        """Infer a time-of-day category from a photo's descriptive words."""
+        if words & {"night", "stars", "galaxy", "nebula", "aurora", "milky"}:
+            return ImageCategory.NIGHT
+        if words & {"sunrise", "dawn", "morning"}:
+            return ImageCategory.SUNRISE
+        if words & {"sunset", "dusk", "evening", "golden"}:
+            return ImageCategory.SUNSET
+        if words & {"day", "daylight", "sunny", "blue", "bright"}:
+            return ImageCategory.DAYTIME
+        return ImageCategory.ANY
+
+    def _to_result(self, photo: dict) -> Optional[ImageResult]:
+        """Build an ImageResult from an API photo object."""
+        url = self._wallpaper_url(photo)
+        if not url:
+            return None
+
+        words = self._terms_of(photo)
+        description = (photo.get("description")
+                       or photo.get("alt_description") or "")
+        author = (photo.get("user") or {}).get("name", "Unknown")
+
         return ImageResult(
             url=url,
             source_name=self.name,
-            title=entry.get("title", "Unsplash Photo"),
-            description=f"{topic.capitalize()} photography from Unsplash",
-            category=self._category_from_string(entry.get("category", "any")),
-            tags=["unsplash", topic],
-            source_id=entry["id"],
-            attribution="Unsplash - unsplash.com",
+            title=description[:80] if description else "Unsplash photo",
+            description=description[:200],
+            category=self._categorise(words),
+            tags=["unsplash"],
+            source_id=photo.get("id", ""),
+            attribution=f"Photo by {author} on Unsplash",
         )
 
-    def _fetch_from_api(self, query: Optional[str] = None) -> Optional[ImageResult]:
-        """Fetch from Unsplash official API (requires API key)."""
+    def _search(self, query: str) -> List[dict]:
+        """Run a search and return the acceptable photos from it."""
         if not self._api_key:
-            return None
+            return []
 
         try:
-            search_query = query or random.choice(self.SEARCH_TOPICS)
-            headers = {"Authorization": f"Client-ID {self._api_key}"}
-            params = {
-                "query": search_query,
-                "orientation": "landscape",
-                "per_page": 20,
-                "order_by": "relevant",
-            }
-
             response = requests.get(
                 f"{self.API_URL}/search/photos",
-                headers=headers,
-                params=params,
-                timeout=15,
+                headers={"Authorization": f"Client-ID {self._api_key}"},
+                params={
+                    "query": query,
+                    "orientation": "landscape",
+                    "per_page": 30,
+                    # Deep pages drift off topic, so stay near the top.
+                    "page": random.randint(1, 3),
+                    "content_filter": "high",
+                },
+                timeout=20,
             )
+            if response.status_code == 401:
+                log.warning("Unsplash rejected the API key")
+                return []
             response.raise_for_status()
-            data = response.json()
-            results = data.get("results", [])
-
-            if not results:
-                return None
-
-            photo = random.choice(results)
-            # Get the highest quality URL
-            urls = photo.get("urls", {})
-            url = urls.get("raw", urls.get("full", urls.get("regular", "")))
-            
-            # Append sizing parameters for wallpaper quality
-            if url and "?" not in url:
-                url += "?w=3840&h=2160&fit=crop&q=90"
-            elif url:
-                url += "&w=3840&h=2160&fit=crop&q=90"
-
-            if not url:
-                return None
-
-            user_name = photo.get("user", {}).get("name", "Unknown")
-            description = photo.get("description") or photo.get("alt_description") or ""
-
-            return ImageResult(
-                url=url,
-                source_name=self.name,
-                title=description[:80] if description else f"Unsplash: {search_query}",
-                description=description,
-                category=ImageCategory.ANY,
-                tags=["unsplash", search_query.split()[0]],
-                source_id=photo.get("id", ""),
-                attribution=f"Photo by {user_name} on Unsplash",
-            )
-        except Exception as e:
-            log.warning("unsplash api error: %s", e)
-            return None
-
-    def _fetch_from_search_page(self, query: Optional[str] = None) -> Optional[ImageResult]:
-        """
-        Fetch fresh images by querying Unsplash's internal search API.
-        This works without an API key and gives access to the full library.
-        Downloads the full-resolution version for wallpaper use.
-        """
-        try:
-            search_query = query or random.choice(self.SEARCH_TOPICS)
-            page = random.randint(1, 10)  # Random page for variety
-            
-            params = {
-                "query": search_query,
-                "per_page": 20,
-                "page": page,
-                "orientation": "landscape",
-            }
-
-            headers = {
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-                "Accept": "application/json",
-            }
-
-            response = requests.get(
-                self.SEARCH_URL,
-                params=params,
-                headers=headers,
-                timeout=15,
-            )
-            
-            if response.status_code != 200:
-                return None
-
-            data = response.json()
-            results = data.get("results", [])
-
-            if not results:
-                return None
-
-            # Pick a random photo from results
-            photo = random.choice(results)
-            urls = photo.get("urls", {})
-            
-            # Get the raw/full URL for maximum quality wallpaper
-            url = urls.get("raw", urls.get("full", urls.get("regular", "")))
-            
-            if url:
-                # Append wallpaper-quality parameters
-                separator = "&" if "?" in url else "?"
-                url += f"{separator}w=3840&h=2160&fit=crop&q=90"
-
-            if not url:
-                return None
-
-            user_name = photo.get("user", {}).get("name", "Unknown")
-            description = photo.get("description") or photo.get("alt_description") or ""
-            
-            # Determine category from color/description hints
-            category = ImageCategory.ANY
-            desc_lower = (description or "").lower()
-            if any(w in desc_lower for w in ["night", "star", "dark", "galaxy", "space"]):
-                category = ImageCategory.NIGHT
-            elif any(w in desc_lower for w in ["sunrise", "dawn", "morning"]):
-                category = ImageCategory.SUNRISE
-            elif any(w in desc_lower for w in ["sunset", "dusk", "golden hour"]):
-                category = ImageCategory.SUNSET
-            elif any(w in desc_lower for w in ["sunny", "bright", "day", "blue sky"]):
-                category = ImageCategory.DAYTIME
-
-            return ImageResult(
-                url=url,
-                source_name=self.name,
-                title=description[:80] if description else f"Unsplash: {search_query}",
-                description=description[:200] if description else "",
-                category=category,
-                tags=["unsplash", search_query.replace(" ", "-")],
-                source_id=photo.get("id", ""),
-                attribution=f"Photo by {user_name} on Unsplash",
-            )
+            results = response.json().get("results", [])
         except Exception as e:
             log.warning("unsplash search error: %s", e)
-            return None
+            return []
+
+        accepted = [p for p in results if self._is_acceptable(p)]
+        rejected = len(results) - len(accepted)
+        if rejected:
+            log.debug("rejected %d of %d off-subject results for %r",
+                      rejected, len(results), query)
+        return accepted
 
     def fetch_random(self) -> Optional[ImageResult]:
-        """
-        Fetch a random high-quality wallpaper from Unsplash.
-        
-        Priority:
-        1. API (if key configured) - best quality + variety
-        2. Search page scraping (if enabled) - good variety, full resolution
-        3. Curated list - always works, guaranteed quality
-        """
-        # Try API first
-        if self._api_key:
-            result = self._fetch_from_api()
-            if result:
-                return result
+        """Fetch a random scenery, aerial or space photo."""
+        if not self._api_key:
+            log.debug("no API key configured, skipping")
+            return None
 
-        # Try scraping search results for fresh content
-        if self._search_enabled:
-            result = self._fetch_from_search_page()
-            if result:
-                return result
+        topics = random.sample(self.SEARCH_TOPICS, k=min(3, len(self.SEARCH_TOPICS)))
+        for query in topics:
+            photos = self._search(query)
+            if photos:
+                return self._to_result(random.choice(photos))
 
-        # Fallback to curated photos
-        return self._fetch_curated_random()
-
-    def _fetch_curated_random(self) -> Optional[ImageResult]:
-        """Get a random image from the curated collection."""
-        # Collect all photos from active topics
-        all_photos = []
-        for topic in self._active_topics:
-            if topic in CURATED_PHOTOS:
-                for photo in CURATED_PHOTOS[topic]:
-                    all_photos.append((photo, topic))
-
-        if not all_photos:
-            # Use all topics as fallback
-            for topic, photos in CURATED_PHOTOS.items():
-                for photo in photos:
-                    all_photos.append((photo, topic))
-
-        if all_photos:
-            photo, topic = random.choice(all_photos)
-            return self._parse_curated(photo, topic)
-
+        log.info("no acceptable results for %s", ", ".join(topics))
         return None
 
     def fetch_by_category(self, category: ImageCategory) -> Optional[ImageResult]:
-        """Fetch an image matching the time-of-day category."""
+        """Fetch a photo matching a time-of-day category."""
         if category == ImageCategory.ANY:
             return self.fetch_random()
 
-        # Try search with category-specific query
-        if self._search_enabled:
-            category_queries = {
-                ImageCategory.SUNRISE: "sunrise landscape wallpaper",
-                ImageCategory.DAYTIME: "landscape nature bright wallpaper",
-                ImageCategory.SUNSET: "sunset landscape golden hour",
-                ImageCategory.NIGHT: "night sky stars landscape",
-            }
-            query = category_queries.get(category)
-            if query:
-                result = self._fetch_from_search_page(query)
-                if result:
-                    result.category = category
-                    return result
+        queries = {
+            ImageCategory.SUNRISE: "sunrise landscape",
+            ImageCategory.DAYTIME: "aerial landscape daylight",
+            ImageCategory.SUNSET: "sunset landscape golden hour",
+            ImageCategory.NIGHT: "night sky stars landscape",
+        }
+        query = queries.get(category)
+        if not query:
+            return self.fetch_random()
 
-        # Fallback: filter curated by category
-        all_photos = []
-        for topic in self._active_topics:
-            if topic in CURATED_PHOTOS:
-                for photo in CURATED_PHOTOS[topic]:
-                    if self._category_from_string(photo.get("category", "any")) == category:
-                        all_photos.append((photo, topic))
-
-        if all_photos:
-            photo, topic = random.choice(all_photos)
-            return self._parse_curated(photo, topic)
+        photos = self._search(query)
+        if photos:
+            result = self._to_result(random.choice(photos))
+            if result:
+                result.category = category
+                return result
 
         return self.fetch_random()

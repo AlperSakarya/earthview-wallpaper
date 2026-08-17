@@ -53,7 +53,7 @@ log = get_logger()
 
 APPINDICATOR_ID = 'earthview-wallpaper'
 APP_NAME = 'Earth View Wallpaper'
-VERSION = '2.1.0'
+VERSION = '2.1.1'
 
 # Default auto-change interval options (in seconds)
 INTERVAL_OPTIONS = {
@@ -391,7 +391,11 @@ class EarthViewApp:
         submenu_lock.append(gtk.SeparatorMenuItem())
 
         for source_id, source in self.registry.all_sources.items():
-            item = gtk.CheckMenuItem(label=source.name)
+            label = source.name
+            if not source.is_available():
+                label += ("  (needs API key)" if source.requires_api_key
+                          else "  (unavailable)")
+            item = gtk.CheckMenuItem(label=label)
             item.set_active(source_id in locked)
             item.connect('toggled', self.on_toggle_source_lock, source_id)
             submenu_lock.append(item)
@@ -400,6 +404,11 @@ class EarthViewApp:
         hint = gtk.MenuItem(label='Unchecking all reverts to randomize')
         hint.set_sensitive(False)
         submenu_lock.append(hint)
+
+        if locked and not self.registry.lock_is_satisfiable:
+            warn = gtk.MenuItem(label='Locked source unusable - using all')
+            warn.set_sensitive(False)
+            submenu_lock.append(warn)
 
         item_lock.set_submenu(submenu_lock)
         menu.append(item_lock)
@@ -734,10 +743,18 @@ class EarthViewApp:
 
         self._apply_source_lock(locked)
 
-        if locked:
-            self.show_notification(f"Locked to: {self._lock_summary()}")
-        else:
+        if not locked:
             self.show_notification("Using all sources (randomize)")
+            return
+
+        source = self.registry.get_source(source_id)
+        if widget.get_active() and source and not source.is_available():
+            note = ("needs an API key - add one in Preferences > Sources"
+                    if source.requires_api_key else "is currently unavailable")
+            self.show_notification(f"{source.name} {note}.\n"
+                                   f"Using all sources until then.")
+        else:
+            self.show_notification(f"Locked to: {self._lock_summary()}")
 
     def on_unlock_all_sources(self, widget):
         """Clear the lock so all sources are used."""

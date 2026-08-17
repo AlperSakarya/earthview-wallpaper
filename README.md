@@ -9,7 +9,7 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 - **Himawari-8** - Japanese weather satellite, full-color Earth every 10 minutes
 - **GOES-16/18** - NOAA weather satellites showing the Americas in true color
 - **NASA APOD** - Astronomy Picture of the Day
-- **Unsplash** - High-quality scenery, aerial, nature, and space photography (searches for fresh wallpapers automatically)
+- **Unsplash** - Scenery, aerial, nature, and space photography (**requires a free API key**)
 
 ## Features
 
@@ -32,7 +32,7 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 
 ```bash
 # Single command - installs package and all dependencies automatically
-sudo apt install ./earthview-wallpaper_2.1.0_all.deb
+sudo apt install ./earthview-wallpaper_2.1.1_all.deb
 ```
 
 The package handles upgrades cleanly: it stops any running instance before
@@ -93,6 +93,10 @@ Open **Lock to Sources** in the tray menu and tick the sources you want. Only
 those are used for automatic and manual changes, and they rotate evenly among
 themselves. Tick a single source to use only that one, for example Unsplash.
 
+Sources that cannot run are marked in the menu, for example Unsplash without
+an API key. Locking to one of those falls back to the available sources rather
+than leaving the wallpaper unchanged.
+
 Choose **All Sources (randomize)**, or untick everything, to go back to using
 every source. The same checkboxes appear under Preferences > Sources. The
 current lock is shown in the menu label, e.g. `Lock to Sources [Unsplash]`.
@@ -118,11 +122,11 @@ than at random. Every applied image URL is recorded, and no image repeats
 within seven days. At a 5-minute interval that means roughly 336 images per
 source per week, which every source can supply.
 
-### API Keys (Optional)
+### API Keys
 
-All sources work without API keys. For better access:
+Most sources work without API keys. Unsplash requires one:
 
-- **Unsplash**: Get a free key at https://unsplash.com/developers
+- **Unsplash**: Required. Get a free key at https://unsplash.com/developers
 - **NASA APOD**: Get a free key at https://api.nasa.gov
 
 Configure keys in Preferences > Sources tab.
@@ -189,7 +193,7 @@ python3 wallpaper-changer/migrate_data.py --input wallpaper-changer/data.json
 
 This stages the source tree into the package layout, normalises ownership to
 `root:root` and permissions to Debian policy, compresses the changelog and man
-page, and builds `earthview-wallpaper_2.1.0_all.deb`. The result passes
+page, and builds `earthview-wallpaper_2.1.1_all.deb`. The result passes
 `lintian` with no errors or warnings.
 
 ## Fly-Over Routes

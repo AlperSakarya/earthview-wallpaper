@@ -1,3 +1,27 @@
+earthview-wallpaper (2.1.1) stable; urgency=high
+
+  * Stop Unsplash serving unrelated photographs, including portraits of
+    people. The bundled list of Unsplash photo identifiers was not verified
+    against the images it referenced, so entries labelled as scenery pointed
+    at arbitrary photos. That list has been removed rather than corrected,
+    since its metadata could not be trusted.
+  * Unsplash now requires a free API key and reports itself unavailable
+    without one, so it is skipped instead of substituting arbitrary images.
+    No keyless access remains: the internal search endpoint refuses non
+    browser clients, source.unsplash.com is retired, and the documented API
+    rejects unauthenticated requests. The previous keyless search path had
+    therefore never worked, and every Unsplash wallpaper came from the
+    unverified list.
+  * Screen Unsplash results against their description and tags, rejecting
+    people-centric photos, which the service returns freely for queries
+    about landscapes.
+  * A source lock that cannot be satisfied, such as locking to Unsplash with
+    no key configured, now falls back to the available sources instead of
+    leaving the wallpaper frozen. The tray menu marks sources needing a key
+    and warns when a lock is unusable.
+
+ -- Alper Sakarya <earthview@example.com>  Mon, 17 Aug 2026 10:00:00 +0000
+
 earthview-wallpaper (2.1.0) stable; urgency=medium
 
   * Add a source lock. A new "Lock to Sources" tray submenu restricts

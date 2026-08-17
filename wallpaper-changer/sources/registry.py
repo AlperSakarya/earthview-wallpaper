@@ -187,11 +187,36 @@ class SourceRegistry:
 
     @property
     def active_sources(self) -> Dict[str, WallpaperSource]:
-        """Currently active sources (all if none specifically set)."""
+        """
+        Sources eligible for automatic selection.
+
+        With no lock set, every available source is eligible. With a lock, only
+        the locked ones are. If a lock resolves to nothing usable, for example
+        locking to a source whose API key was removed, fall back to everything
+        available rather than leaving the app unable to change the wallpaper.
+        """
+        available = {sid: s for sid, s in self._sources.items() if s.is_available()}
+
         if not self._active_sources:
-            return {sid: s for sid, s in self._sources.items() if s.is_available()}
-        return {sid: self._sources[sid] for sid in self._active_sources
-                if sid in self._sources and self._sources[sid].is_available()}
+            return available
+
+        locked = {sid: available[sid]
+                  for sid in self._active_sources if sid in available}
+        if locked:
+            return locked
+
+        unusable = ", ".join(self._active_sources)
+        log.warning("locked sources unusable (%s), falling back to all available",
+                    unusable)
+        return available
+
+    @property
+    def lock_is_satisfiable(self) -> bool:
+        """Whether the current lock resolves to at least one usable source."""
+        if not self._active_sources:
+            return True
+        return any(sid in self._sources and self._sources[sid].is_available()
+                   for sid in self._active_sources)
 
     @property
     def live_sources(self) -> Dict[str, WallpaperSource]:

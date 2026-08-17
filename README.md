@@ -3,13 +3,50 @@
 A multi-source desktop wallpaper changer that pulls imagery from weather
 satellites, space telescopes, and curated photography archives.
 
-This started life as a small Google Earth View wallpaper script, forked from
-[limhenry/earthview](https://github.com/limhenry/earthview) back in 2016. It
-set a random satellite photo from a single list and did nothing else. It has
-since grown into a plugin-based engine spanning seven providers, live satellite
-feeds, source locking, scenic fly-over routes and time-aware selection, so it
-now lives here as its own project rather than as a fork. See
-[Project history](#project-history) for how it got here.
+This started life as a small Google Earth View wallpaper script. It set a random
+satellite photo from a single list and did nothing else. It has since grown into
+a plugin-based engine spanning seven providers, live satellite feeds, source
+locking, scenic fly-over routes and time-aware selection, so it now lives here
+as its own project. The original is archived at
+[AlperSakarya/earthview](https://github.com/AlperSakarya/earthview), where you
+can see where it came from. See [Project history](#project-history) for how it
+got here.
+
+![Wallpapers from six of the seven sources](docs/showcase.jpg)
+
+*Actual output, one image from each of six sources: Google Earth View,
+Wikimedia Commons, NASA EPIC, NOAA GOES, Himawari-8 and Unsplash.*
+
+## Install
+
+Download the latest `.deb` from the
+[releases page](https://github.com/AlperSakarya/earthview-wallpaper/releases/latest),
+then install it:
+
+```bash
+sudo apt install ./earthview-wallpaper_*_all.deb
+```
+
+Or fetch and install in one go:
+
+```bash
+curl -LO "$(curl -s https://api.github.com/repos/AlperSakarya/earthview-wallpaper/releases/latest \
+  | grep browser_download_url | cut -d'"' -f4)"
+sudo apt install ./earthview-wallpaper_*_all.deb
+```
+
+Use `apt` rather than `dpkg -i` so dependencies are resolved in one step.
+The application starts straight after installation and appears in your system
+tray. To launch it manually, or after quitting:
+
+```bash
+earthview-wallpaper
+```
+
+Enable **Start at login** from the tray menu to have it run on boot.
+
+Requires a GNOME-based desktop with system tray support. Tested on Ubuntu
+22.04 and 24.04.
 
 ## Sources
 
@@ -43,43 +80,44 @@ Six of the seven work with no key at all.
 - **System tray indicator** with full menu
 - **Auto-start** at login
 
-## Installation
+## Building from source
 
-### Method 1: Debian Package (Recommended)
+If you would rather run the code directly, or want to develop against it:
 
 ```bash
-# Single command - installs package and all dependencies automatically
-sudo apt install ./earthview-wallpaper_2.4.0_all.deb
+# system dependencies
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
+  gir1.2-ayatanaappindicator3-0.1 gir1.2-notify-0.7 \
+  python3-cairo python3-requests
+
+git clone https://github.com/AlperSakarya/earthview-wallpaper.git
+cd earthview-wallpaper
+python3 wallpaper-changer/indicator.py
 ```
 
-The package handles upgrades cleanly: it stops any running instance before
-replacing files, clears stale locks, and restarts the app afterwards if it
-was running. Use `apt` rather than `dpkg -i` so dependencies resolve in one
-step.
+To build your own package:
 
-To remove it:
+```bash
+./build-package.sh
+```
+
+That stages the source tree into the package layout, normalises ownership to
+`root:root` and permissions to Debian policy, compresses the changelog and man
+page, verifies every module reached the archive, and passes `lintian` with no
+errors or warnings.
+
+## Uninstall
 
 ```bash
 sudo apt remove earthview-wallpaper
 ```
 
-Your settings in `~/.config/earthview/` and cached wallpaper in
-`~/.cache/earthview/` are left in place on removal; delete them by hand if
-you want a completely clean slate.
-
-### Method 2: Manual
+Settings in `~/.config/earthview/` and cached images in `~/.cache/earthview/`
+are left in place, since packages should not delete files from home
+directories. Remove them by hand for a clean slate:
 
 ```bash
-# Install system dependencies
-sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 \
-  gir1.2-ayatanaappindicator3-0.1 gir1.2-notify-0.7 \
-  python3-cairo python3-bs4 python3-lxml python3-requests
-
-# Clone and run
-git clone https://github.com/yourusername/earthview.git
-cd earthview
-chmod +x wallpaper-changer/indicator.py
-./wallpaper-changer/indicator.py
+rm -rf ~/.config/earthview ~/.cache/earthview
 ```
 
 ## Usage
@@ -276,17 +314,6 @@ If upgrading from v1.x:
 python3 wallpaper-changer/migrate_data.py --input wallpaper-changer/data.json
 ```
 
-## Building the Debian Package
-
-```bash
-./build-package.sh
-```
-
-This stages the source tree into the package layout, normalises ownership to
-`root:root` and permissions to Debian policy, compresses the changelog and man
-page, and builds `earthview-wallpaper_2.4.0_all.deb`. The result passes
-`lintian` with no errors or warnings.
-
 ## Fly-Over Routes
 
 Built-in routes for the fly-over mode:
@@ -344,10 +371,14 @@ repairs it.
 
 ## Project history
 
-The project began in 2016 as a fork of
-[limhenry/earthview](https://github.com/limhenry/earthview), a script that set
-a random Google Earth View satellite photo as the desktop wallpaper. That was
-the whole of it: one source, one list, one action.
+The project began in 2016 as
+[AlperSakarya/earthview](https://github.com/AlperSakarya/earthview), a fork of
+[limhenry/earthview](https://github.com/limhenry/earthview). That repository is
+now archived and kept as a record of where this came from; it shows both the
+fork lineage and the original single-source script.
+
+Back then it did one thing: set a random Google Earth View satellite photo as
+the wallpaper. One source, one list, one action.
 
 What it is now:
 
@@ -361,7 +392,7 @@ What it is now:
 
 Google Earth View is still one of the seven sources, and the original data set
 is still in the repository. It is simply no longer the whole story, which is
-why the project moved out of the fork network and into its own repository.
+why the project moved into its own repository.
 
 Credit to [Henry Lim](https://github.com/limhenry) for the original project and
 the Earth View data set that this grew out of.

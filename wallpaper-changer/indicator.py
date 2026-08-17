@@ -54,7 +54,7 @@ log = get_logger()
 
 APPINDICATOR_ID = 'earthview-wallpaper'
 APP_NAME = 'Earth View Wallpaper'
-VERSION = '2.3.0'
+VERSION = '2.4.0'
 
 # Some providers, Wikimedia Commons among them, reject requests without a
 # descriptive User-Agent identifying the client and a contact point. Requests
@@ -992,6 +992,9 @@ class EarthViewApp:
         self._download_and_set(image.url)
         self.current_image = image
         self.history.add(image)
+
+        # Some providers require a callback once an image is actually used.
+        self.registry.notify_applied(image)
 
         # Build notification message
         msg = image.title or "Wallpaper changed"

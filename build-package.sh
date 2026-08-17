@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="2.3.0"
+VERSION="2.4.0"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_DIR="$SCRIPT_DIR/earthview-package"

@@ -1,3 +1,25 @@
+earthview-wallpaper (2.4.0) stable; urgency=medium
+
+  * Switch Unsplash to the random photo endpoint, which returns genuinely
+    random results rather than relevance-ranked ones and accepts up to 30 per
+    request. Three queries are merged and shuffled per refill, giving about 85
+    photos, so consecutive wallpapers no longer share a single theme and usage
+    stays far inside the 50 requests per hour a demo key allows.
+  * Choose queries over the official topics after measuring subject accuracy:
+    a specific query returned 30 of 30 on subject, while the wallpapers and
+    nature topics together returned 12 of 30, those topics also holding 3D
+    renders, abstracts and animals.
+  * Register a download with Unsplash when an image is applied, as their API
+    Guidelines require for wallpaper selection. Sources can now implement a
+    notify_applied callback for provider obligations of this kind.
+  * Record the place a photograph was taken where Unsplash supplies it, so
+    Unsplash wallpapers now report a city and country like the satellite
+    sources do.
+  * Update the README for the current source list, pool sizes, logging,
+    troubleshooting and key requirements.
+
+ -- Alper Sakarya <earthview@example.com>  Mon, 17 Aug 2026 15:15:00 +0000
+
 earthview-wallpaper (2.3.0) stable; urgency=medium
 
   * Add a setting to turn desktop notifications off, under Notifications in

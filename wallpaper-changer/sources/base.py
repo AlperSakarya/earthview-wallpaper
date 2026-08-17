@@ -37,6 +37,10 @@ class ImageResult:
     timestamp: float = field(default_factory=time.time)
     source_id: str = ""  # unique ID within the source
     attribution: str = ""
+    # Some providers require a callback when an image is actually used. The
+    # Unsplash API Guidelines, for example, require hitting the photo's
+    # download endpoint when an image is selected as a wallpaper.
+    download_track_url: str = ""
 
     @property
     def location_str(self) -> str:
@@ -181,5 +185,15 @@ class WallpaperSource(ABC):
         
         Args:
             config: Dictionary of configuration values.
+        """
+        pass
+
+    def notify_applied(self, image: ImageResult) -> None:
+        """
+        Called after one of this source's images is actually set as wallpaper.
+
+        Providers may require a usage callback at this point. Implementations
+        must not raise, since the wallpaper has already been applied
+        successfully by the time this runs.
         """
         pass

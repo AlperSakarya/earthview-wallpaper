@@ -1,16 +1,24 @@
-# Earth View Wallpaper Engine v2.0
+# Earth View Wallpaper Engine
 
-A multi-source desktop wallpaper changer that pulls stunning imagery from satellites, space, and nature photography.
+A multi-source desktop wallpaper changer that pulls imagery from weather
+satellites, space telescopes, and curated photography archives.
 
 ## Sources
 
-- **Google Earth View** - 1500+ curated satellite landscapes from Google Earth
-- **NASA EPIC** - Real-time full-disc Earth photos from 1 million miles away (DSCOVR satellite)
-- **Himawari-8** - Japanese weather satellite, full-color Earth every 10 minutes
-- **GOES-16/18** - NOAA weather satellites showing the Americas in true color
-- **NASA APOD** - Astronomy Picture of the Day
-- **Wikimedia Commons** - ~1,600 peer-reviewed landscape and astronomy photographs, no key needed
-- **Unsplash** - Live search of scenery, aerial and space photography (**requires a free API key**)
+Every source discovers its images at run time. No image identifiers are stored
+in the code.
+
+| Source | Pool | API key |
+|---|---|---|
+| **Google Earth View** | 1,511 curated satellite landscapes | no |
+| **Wikimedia Commons** | ~1,600 peer-reviewed landscape and astronomy photos, 4-6K | no |
+| **NASA EPIC** | ~43,000 full-disc Earth images across 3,592 archive dates | no |
+| **GOES-19 / GOES-18** | 23 verified sector views of the Americas, refreshed continuously | no |
+| **Himawari-8** | Asia-Pacific, a new frame every 10 minutes | no |
+| **NASA APOD** | ~10,000 archive days | optional |
+| **Unsplash** | full library, ~52,000 in the wallpaper and nature topics alone | **required** |
+
+Six of the seven work with no key at all.
 
 ## Features
 
@@ -33,7 +41,7 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 
 ```bash
 # Single command - installs package and all dependencies automatically
-sudo apt install ./earthview-wallpaper_2.3.0_all.deb
+sudo apt install ./earthview-wallpaper_2.4.0_all.deb
 ```
 
 The package handles upgrades cleanly: it stops any running instance before
@@ -109,13 +117,35 @@ request for a specific source.
 ### Configuration
 
 Settings are stored in `~/.config/earthview/`:
-- `config.json` - sources, intervals, mode settings
-- `history.json` - wallpaper change history
+- `config.json` - sources, source lock, intervals, notifications, mode settings
+- `history.json` - wallpaper change history, last 100
 - `favorites.json` - saved favorites
 - `recent_urls.json` - deduplication record preventing repeats within 7 days
 - `collections/` - user-created collections
 
-The currently applied wallpaper is cached at `~/.cache/earthview/wallpaper.jpg`.
+The applied wallpaper is cached at `~/.cache/earthview/wallpaper.jpg`, and the
+Wikimedia listing at `~/.cache/earthview/wikimedia_files.json`.
+
+Settings added by a newer version are merged into an existing config on
+startup, so upgrading does not leave new options missing.
+
+The application rewrites the whole config file when it saves, so stop it
+before editing `config.json` by hand or your changes will be overwritten.
+
+### Logging
+
+A rotating log is written to `~/.cache/earthview/earthview.log`, 1 MB per file
+with three backups, reachable from **View Log** in the tray menu. It records
+which source was chosen, duplicate rejections, download sizes, suppressed
+notifications and provider errors.
+
+For more detail:
+
+```bash
+earthview-wallpaper --debug
+# or
+EARTHVIEW_DEBUG=1 earthview-wallpaper
+```
 
 ### Notifications
 
@@ -141,16 +171,52 @@ source per week, which every source can supply.
 
 ### API Keys
 
-Most sources work without API keys. Unsplash requires one:
+Six of the seven sources need no key. Configure keys under
+**Preferences > Sources**; they are saved to `~/.config/earthview/config.json`
+and take effect immediately.
 
-- **Unsplash**: Required. Get a free key at https://unsplash.com/developers
-- **NASA APOD**: Get a free key at https://api.nasa.gov
+**Unsplash — required.** Get a free key at https://unsplash.com/developers.
+There is no keyless route: their internal search endpoint refuses non-browser
+clients, `source.unsplash.com` is retired, and the documented API rejects
+unauthenticated requests. Only the access key is needed; the secret key is for
+OAuth flows this application does not use.
 
-Configure keys in Preferences > Sources tab.
+**NASA APOD — optional but recommended.** Without a key it falls back to
+NASA's shared `DEMO_KEY`, which is limited to roughly 30 requests per hour
+across all users, so it is frequently rate limited. A free key from
+https://api.nasa.gov removes that.
+
+Keys live outside the repository and are never committed.
+
+#### How Unsplash is queried
+
+Requests go to `GET /photos/random`, which returns genuinely random photos
+rather than relevance-ranked search results, and accepts up to 30 per request.
+Measured subject accuracy while choosing the approach:
+
+| approach | on subject |
+|---|---|
+| `query="mountain nature scenery"` | 30/30 |
+| `query="landscape"` | 27/30 |
+| `topics="wallpapers,nature"` | 12/30 |
+
+The official topics are broad curation buckets, so `wallpapers` also holds 3D
+renders, abstracts and animals. Specific queries are used instead.
+
+Each refill draws three queries of 30, merged and shuffled, giving roughly 85
+photos per refill. That keeps consecutive wallpapers from all sharing one
+theme, and keeps usage far inside the 50 requests per hour a demo key allows.
+Results are screened against their descriptions to reject people-centric
+photos.
+
+As their API Guidelines require, selecting an image as a wallpaper registers a
+request to that photo's `download_location` endpoint, and images are always
+served from the hotlinked `urls` they provide.
 
 ## Adding Custom Collections
 
-Create a JSON file in `~/.config/earthview/collections/` or `wallpaper-changer/collections/`:
+Create a JSON file in `~/.config/earthview/collections/` or
+`wallpaper-changer/wallpaper_collections/`:
 
 ```json
 {
@@ -210,7 +276,7 @@ python3 wallpaper-changer/migrate_data.py --input wallpaper-changer/data.json
 
 This stages the source tree into the package layout, normalises ownership to
 `root:root` and permissions to Debian policy, compresses the changelog and man
-page, and builds `earthview-wallpaper_2.3.0_all.deb`. The result passes
+page, and builds `earthview-wallpaper_2.4.0_all.deb`. The result passes
 `lintian` with no errors or warnings.
 
 ## Fly-Over Routes
@@ -233,16 +299,40 @@ gnome-extensions enable appindicatorsupport@rgcjonas.gmail.com
 Log out and back in.
 
 ### Live satellite images not loading
-Check your internet connection. NASA EPIC and GOES require access to:
+Check your internet connection. The satellite sources need access to:
 - epic.gsfc.nasa.gov
 - cdn.star.nesdis.noaa.gov
 - himawari8.nict.go.jp
+- upload.wikimedia.org
+
+Requests must send a descriptive User-Agent; Wikimedia answers 403 without
+one. The application does this already, but it matters if you script against
+the same URLs.
+
+### A source is being skipped
+Check the log. Common causes:
+
+- **NASA APOD returning 429** — the shared `DEMO_KEY` is rate limited. Add a
+  free key from https://api.nasa.gov.
+- **Unsplash marked "needs API key"** — expected without a key. Add one, or
+  ignore it and use the other six sources.
+- **Wikimedia returning 429** — Commons rate limits repeated requests. The
+  listing is cached weekly, and a stale cache is reused rather than dropping
+  the source.
+
+A source lock that cannot be satisfied, such as locking to Unsplash with no
+key, falls back to the available sources instead of leaving the wallpaper
+unchanged.
 
 ### Wallpaper not changing
 ```bash
 gsettings get org.gnome.desktop.background picture-uri
 gsettings get org.gnome.desktop.background picture-uri-dark
 ```
+
+Both keys are set on every change. If the desktop points at a file that no
+longer exists it renders black; the application detects that on startup and
+repairs it.
 
 ## License
 

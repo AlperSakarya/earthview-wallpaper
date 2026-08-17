@@ -232,6 +232,22 @@ class SourceRegistry:
         """Get a specific source by ID."""
         return self._sources.get(source_id)
 
+    def notify_applied(self, image: ImageResult) -> None:
+        """
+        Tell the originating source that one of its images was applied.
+
+        Some providers require a usage callback at that point. Failures are
+        contained here, since the wallpaper is already set by now.
+        """
+        for source in self._sources.values():
+            if source.name == image.source_name:
+                try:
+                    source.notify_applied(image)
+                except Exception as e:
+                    log.debug("notify_applied failed for %s: %s",
+                              source.source_id, e)
+                return
+
     def _get_next_source(self) -> Optional[WallpaperSource]:
         """
         Get the next source in the round-robin cycle.

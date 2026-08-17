@@ -4,6 +4,14 @@ wallpaper-changer/wallpaper.jpg
 __pycache__/
 *.pyc
 *.deb
+
+# Never commit credentials. Keys live in ~/.config/earthview/config.json,
+# outside the repo, but guard against a copy being dropped in here.
+config.json
+**/config.json
+*.key
+.env
+secrets*
 earthview-package/usr/share/earthview/*.py
 earthview-package/usr/share/earthview/sources/
 earthview-package/usr/share/earthview/wallpaper_collections/

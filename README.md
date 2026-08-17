@@ -17,6 +17,12 @@ got here.
 *Actual output, one image from each of six sources: Google Earth View,
 Wikimedia Commons, NASA EPIC, NOAA GOES, Himawari-8 and Unsplash.*
 
+![The system tray menu](docs/menu.png)
+
+*The tray menu: source selection and locking, live satellite feeds,
+collections, fly-over and time-aware modes, the auto-change interval, and
+history showing the current image with its attribution.*
+
 ## Install
 
 Download the latest `.deb` from the

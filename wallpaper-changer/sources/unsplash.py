@@ -1,19 +1,23 @@
 """
 Unsplash source plugin.
 
-Scenery, aerial, and space photography via the official Unsplash API.
+Scenery, aerial and space photography, discovered dynamically through the
+Unsplash search API. No image identifiers are stored in this file: every
+wallpaper comes from a live search.
 
-An API key is required. Unsplash offers no usable keyless access:
-    unsplash.com/napi/search  responds 307 and refuses non-browser clients
-    source.unsplash.com       retired, responds 503
-    api.unsplash.com          401 without a Client-ID
+A free API key is required, from https://unsplash.com/developers, entered
+under Preferences > Sources. Without one this source reports itself
+unavailable and is skipped.
 
-Get a free key at https://unsplash.com/developers and enter it under
-Preferences > Sources. Without one this source reports itself unavailable and
-is skipped, rather than substituting arbitrary images.
+There is deliberately no keyless fallback. Unsplash closed every keyless
+route: unsplash.com/napi/search answers 307 to non-browser clients,
+source.unsplash.com is retired and answers 503, and api.unsplash.com answers
+401 without a Client-ID. Photo identifiers cannot be guessed either, as they
+are opaque rather than sequential. For a large keyless pool use the Wikimedia
+Commons source, which needs no key.
 
-Results are filtered to reject portraits and other people-centric photos,
-which Unsplash search returns freely for landscape-sounding queries.
+Results are screened to reject people-centric photographs, which Unsplash
+returns freely for queries about landscapes.
 """
 
 import random
@@ -30,8 +34,8 @@ except ImportError:  # standalone use without the app package
     log = logging.getLogger("earthview.unsplash")
 
 
-# Terms that indicate a photo is centred on people rather than landscape.
-# Checked against the description and tags returned by the API.
+# Words indicating a photo is centred on people rather than scenery. Checked
+# against the description and tags the API returns.
 PEOPLE_TERMS = {
     "man", "woman", "men", "women", "person", "people", "boy", "girl",
     "portrait", "face", "smile", "smiling", "selfie", "model", "headshot",
@@ -41,7 +45,7 @@ PEOPLE_TERMS = {
     "fashion", "clothing", "shirt", "dress", "suit",
 }
 
-# Terms that confirm a photo is the kind of scenery this app is for.
+# Words confirming a photo is the kind of scenery this application is for.
 SUBJECT_TERMS = {
     "landscape", "mountain", "mountains", "ocean", "sea", "coast", "beach",
     "forest", "tree", "trees", "desert", "dune", "canyon", "valley",
@@ -55,29 +59,20 @@ SUBJECT_TERMS = {
 
 class UnsplashSource(WallpaperSource):
     """
-    Unsplash - scenery, aerial, and space photography.
+    Unsplash - scenery, aerial and space photography via live search.
 
-    Requires a free API key. Filters out people-centric results so the
-    wallpaper stays on subject.
+    Requires a free API key. Filters out people-centric results.
     """
 
     API_URL = "https://api.unsplash.com"
 
     SEARCH_TOPICS = [
-        "aerial landscape",
-        "mountain landscape",
-        "earth from space",
-        "ocean aerial view",
-        "desert landscape",
-        "glacier landscape",
-        "forest aerial",
-        "canyon landscape",
-        "northern lights",
-        "nebula galaxy",
-        "volcano aerial",
-        "tropical island aerial",
-        "coastline aerial",
-        "sand dunes aerial",
+        "aerial landscape", "mountain landscape", "earth from space",
+        "ocean aerial view", "desert landscape", "glacier landscape",
+        "forest aerial", "canyon landscape", "northern lights",
+        "nebula galaxy", "volcano aerial", "tropical island aerial",
+        "coastline aerial", "sand dunes aerial", "fjord landscape",
+        "waterfall landscape", "starry night landscape", "storm clouds",
     ]
 
     def __init__(self):
@@ -93,7 +88,7 @@ class UnsplashSource(WallpaperSource):
 
     @property
     def description(self) -> str:
-        return ("Scenery, aerial and space photography "
+        return ("Scenery, aerial and space photography via live search "
                 "(needs a free key from unsplash.com/developers)")
 
     @property
@@ -116,35 +111,29 @@ class UnsplashSource(WallpaperSource):
 
     @staticmethod
     def _terms_of(photo: dict) -> set:
-        """Collect lowercase words describing a photo, from text and tags."""
+        """Lowercase words describing a photo, from its text and tags."""
         words = set()
         for field in ("description", "alt_description"):
             text = photo.get(field) or ""
             words.update(w.strip(".,!?()[]'\"").lower() for w in text.split())
         for tag in photo.get("tags") or []:
-            title = (tag.get("title") or "").lower()
-            words.update(title.split())
+            words.update((tag.get("title") or "").lower().split())
         return words
 
     def _is_acceptable(self, photo: dict) -> bool:
         """
         Reject people-centric photos.
 
-        Unsplash returns portraits for queries like "scenery wallpaper", so
-        results are screened rather than trusted. A photo is rejected if it
-        mentions people and does not clearly mention scenery; when it has no
-        usable description at all it is rejected as unverifiable.
+        A photo is rejected when it mentions people without also mentioning
+        scenery, and when it carries no usable description at all, since then
+        its subject cannot be established.
         """
         words = self._terms_of(photo)
         if not words:
             return False
-
-        has_people = bool(words & PEOPLE_TERMS)
-        has_subject = bool(words & SUBJECT_TERMS)
-
-        if has_people and not has_subject:
+        if (words & PEOPLE_TERMS) and not (words & SUBJECT_TERMS):
             return False
-        return has_subject
+        return bool(words & SUBJECT_TERMS)
 
     def _wallpaper_url(self, photo: dict) -> Optional[str]:
         """Highest quality URL, sized for a wallpaper."""
@@ -155,25 +144,25 @@ class UnsplashSource(WallpaperSource):
         separator = "&" if "?" in url else "?"
         return f"{url}{separator}w=3840&h=2160&fit=crop&q=90"
 
-    def _categorise(self, words: set) -> ImageCategory:
-        """Infer a time-of-day category from a photo's descriptive words."""
+    @staticmethod
+    def _categorise(words: set) -> ImageCategory:
+        """Infer a time-of-day category from descriptive words."""
         if words & {"night", "stars", "galaxy", "nebula", "aurora", "milky"}:
             return ImageCategory.NIGHT
         if words & {"sunrise", "dawn", "morning"}:
             return ImageCategory.SUNRISE
         if words & {"sunset", "dusk", "evening", "golden"}:
             return ImageCategory.SUNSET
-        if words & {"day", "daylight", "sunny", "blue", "bright"}:
+        if words & {"day", "daylight", "sunny", "bright"}:
             return ImageCategory.DAYTIME
         return ImageCategory.ANY
 
     def _to_result(self, photo: dict) -> Optional[ImageResult]:
-        """Build an ImageResult from an API photo object."""
+        """Build an ImageResult from a live API photo object."""
         url = self._wallpaper_url(photo)
         if not url:
             return None
 
-        words = self._terms_of(photo)
         description = (photo.get("description")
                        or photo.get("alt_description") or "")
         author = (photo.get("user") or {}).get("name", "Unknown")
@@ -183,14 +172,14 @@ class UnsplashSource(WallpaperSource):
             source_name=self.name,
             title=description[:80] if description else "Unsplash photo",
             description=description[:200],
-            category=self._categorise(words),
+            category=self._categorise(self._terms_of(photo)),
             tags=["unsplash"],
             source_id=photo.get("id", ""),
             attribution=f"Photo by {author} on Unsplash",
         )
 
     def _search(self, query: str) -> List[dict]:
-        """Run a search and return the acceptable photos from it."""
+        """Run a live search, returning only acceptable photos."""
         if not self._api_key:
             return []
 
@@ -203,7 +192,7 @@ class UnsplashSource(WallpaperSource):
                     "orientation": "landscape",
                     "per_page": 30,
                     # Deep pages drift off topic, so stay near the top.
-                    "page": random.randint(1, 3),
+                    "page": random.randint(1, 5),
                     "content_filter": "high",
                 },
                 timeout=20,
@@ -218,19 +207,19 @@ class UnsplashSource(WallpaperSource):
             return []
 
         accepted = [p for p in results if self._is_acceptable(p)]
-        rejected = len(results) - len(accepted)
-        if rejected:
+        if len(results) != len(accepted):
             log.debug("rejected %d of %d off-subject results for %r",
-                      rejected, len(results), query)
+                      len(results) - len(accepted), len(results), query)
         return accepted
 
     def fetch_random(self) -> Optional[ImageResult]:
-        """Fetch a random scenery, aerial or space photo."""
+        """Fetch a random scenery, aerial or space photo from live search."""
         if not self._api_key:
             log.debug("no API key configured, skipping")
             return None
 
-        topics = random.sample(self.SEARCH_TOPICS, k=min(3, len(self.SEARCH_TOPICS)))
+        topics = random.sample(self.SEARCH_TOPICS,
+                               k=min(3, len(self.SEARCH_TOPICS)))
         for query in topics:
             photos = self._search(query)
             if photos:

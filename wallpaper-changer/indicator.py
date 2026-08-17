@@ -53,7 +53,13 @@ log = get_logger()
 
 APPINDICATOR_ID = 'earthview-wallpaper'
 APP_NAME = 'Earth View Wallpaper'
-VERSION = '2.1.1'
+VERSION = '2.2.0'
+
+# Some providers, Wikimedia Commons among them, reject requests without a
+# descriptive User-Agent identifying the client and a contact point. Requests
+# sends none by default, which those providers answer with HTTP 403.
+USER_AGENT = (f"earthview-wallpaper/{VERSION} "
+              "(https://github.com/AlperSakarya/earthview)")
 
 # Default auto-change interval options (in seconds)
 INTERVAL_OPTIONS = {
@@ -943,8 +949,10 @@ class EarthViewApp:
 
         log.info("downloading %s", url)
 
-        # Download
-        response = requests.get(url, timeout=30, stream=True)
+        # Download. The User-Agent is required: providers such as Wikimedia
+        # Commons answer 403 without one.
+        response = requests.get(url, timeout=30, stream=True,
+                                headers={"User-Agent": USER_AGENT})
         response.raise_for_status()
 
         written = 0

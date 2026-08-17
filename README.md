@@ -9,7 +9,8 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 - **Himawari-8** - Japanese weather satellite, full-color Earth every 10 minutes
 - **GOES-16/18** - NOAA weather satellites showing the Americas in true color
 - **NASA APOD** - Astronomy Picture of the Day
-- **Unsplash** - Scenery, aerial, nature, and space photography (**requires a free API key**)
+- **Wikimedia Commons** - ~1,600 peer-reviewed landscape and astronomy photographs, no key needed
+- **Unsplash** - Live search of scenery, aerial and space photography (**requires a free API key**)
 
 ## Features
 
@@ -32,7 +33,7 @@ A multi-source desktop wallpaper changer that pulls stunning imagery from satell
 
 ```bash
 # Single command - installs package and all dependencies automatically
-sudo apt install ./earthview-wallpaper_2.1.1_all.deb
+sudo apt install ./earthview-wallpaper_2.2.0_all.deb
 ```
 
 The package handles upgrades cleanly: it stops any running instance before
@@ -193,7 +194,7 @@ python3 wallpaper-changer/migrate_data.py --input wallpaper-changer/data.json
 
 This stages the source tree into the package layout, normalises ownership to
 `root:root` and permissions to Debian policy, compresses the changelog and man
-page, and builds `earthview-wallpaper_2.1.1_all.deb`. The result passes
+page, and builds `earthview-wallpaper_2.2.0_all.deb`. The result passes
 `lintian` with no errors or warnings.
 
 ## Fly-Over Routes

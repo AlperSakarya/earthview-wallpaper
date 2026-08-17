@@ -1,3 +1,24 @@
+earthview-wallpaper (2.2.0) stable; urgency=high
+
+  * Add Wikimedia Commons as a source: roughly 1,600 peer-reviewed landscape
+    and astronomy photographs from Featured pictures and Quality images
+    categories, at 4-6K native resolution, requiring no API key. The listing
+    is cached for a week because Commons rate limits repeated requests.
+  * No image identifiers are stored in the code any more. Every source now
+    discovers its images at run time, through a search, an archive index or a
+    category listing.
+  * Restore Unsplash usefully by switching it to live search with an API key.
+    Diagnostics on the previous bundled list found 33 of 36 images were in
+    fact good, so removing all of them in 2.1.1 was an overcorrection; the
+    list is gone regardless, since identifiers no longer live in the code.
+  * Send a descriptive User-Agent when downloading. Requests sends none by
+    default, and Wikimedia answers that with 403, so Commons images could not
+    have been downloaded at all.
+  * Remove three collection entries whose URLs return 404. All 26 remaining
+    collection images were verified to resolve.
+
+ -- Alper Sakarya <earthview@example.com>  Mon, 17 Aug 2026 10:15:00 +0000
+
 earthview-wallpaper (2.1.1) stable; urgency=high
 
   * Stop Unsplash serving unrelated photographs, including portraits of

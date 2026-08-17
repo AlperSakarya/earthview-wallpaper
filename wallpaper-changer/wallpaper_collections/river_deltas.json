@@ -3,21 +3,13 @@
   "name": "River Deltas & Waterways",
   "description": "Beautiful river deltas, estuaries, and winding waterways from above",
   "icon": "",
-  "tags": ["water", "rivers", "deltas", "nature"],
+  "tags": [
+    "water",
+    "rivers",
+    "deltas",
+    "nature"
+  ],
   "images": [
-    {
-      "url": "https://www.gstatic.com/prettyearth/assets/full/1814.jpg",
-      "title": "River Delta Pattern",
-      "description": "Intricate branching patterns of a river delta",
-      "country": "Russia",
-      "region": "Siberia",
-      "latitude": 72.5,
-      "longitude": 127.0,
-      "category": "daytime",
-      "tags": ["delta", "river", "patterns"],
-      "id": "ev-1814",
-      "attribution": "Google Earth View"
-    },
     {
       "url": "https://www.gstatic.com/prettyearth/assets/full/1027.jpg",
       "title": "Bahamas Tidal Channels",
@@ -28,7 +20,12 @@
       "longitude": -76.333179,
       "maps_url": "https://www.google.com/maps/@24.936413,-76.333179,14z",
       "category": "daytime",
-      "tags": ["water", "tropical", "turquoise", "channels"],
+      "tags": [
+        "water",
+        "tropical",
+        "turquoise",
+        "channels"
+      ],
       "id": "ev-1027",
       "attribution": "Google Earth View"
     },
@@ -42,7 +39,11 @@
       "longitude": 61.502323,
       "maps_url": "https://www.google.com/maps/@46.666756,61.502323,14z",
       "category": "daytime",
-      "tags": ["water", "lake", "shoreline"],
+      "tags": [
+        "water",
+        "lake",
+        "shoreline"
+      ],
       "id": "ev-1074",
       "attribution": "Google Earth View"
     },
@@ -56,7 +57,12 @@
       "longitude": -145.549783,
       "maps_url": "https://www.google.com/maps/@-17.369726,-145.549783,15z",
       "category": "daytime",
-      "tags": ["atoll", "coral", "ocean", "tropical"],
+      "tags": [
+        "atoll",
+        "coral",
+        "ocean",
+        "tropical"
+      ],
       "id": "ev-1032",
       "attribution": "Google Earth View"
     },
@@ -70,7 +76,11 @@
       "longitude": 99.857483,
       "maps_url": "https://www.google.com/maps/@36.956476,99.857483,14z",
       "category": "daytime",
-      "tags": ["lake", "rivers", "salt-flat"],
+      "tags": [
+        "lake",
+        "rivers",
+        "salt-flat"
+      ],
       "id": "ev-1063",
       "attribution": "Google Earth View"
     },
@@ -84,7 +94,12 @@
       "longitude": -112.104795,
       "maps_url": "https://www.google.com/maps/@41.432562,-112.104795,16z",
       "category": "daytime",
-      "tags": ["salt-lake", "minerals", "patterns", "colorful"],
+      "tags": [
+        "salt-lake",
+        "minerals",
+        "patterns",
+        "colorful"
+      ],
       "id": "ev-1050",
       "attribution": "Google Earth View"
     }
